@@ -54,7 +54,7 @@ def get_percentage_missing_values(df):
 
     return percentage_missing_df
 
-
+#rimuove colonne con dati mancanti spora la soglia
 def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
 
     columns_to_drop = list(percentage_df[percentage_df['Missing'] > threshold].index)

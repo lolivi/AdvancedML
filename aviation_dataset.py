@@ -37,7 +37,7 @@ def get_number_of_null_values(df):
 def get_number_of_duplicated_values(df):
     print(df.duplicate().sum())
 
-
+#percentuali di variabili mancanti
 def get_percentage_missing_values(df):
     # calculate % missing values for each column
     n_rows = len(df)
@@ -54,7 +54,7 @@ def get_percentage_missing_values(df):
 
     return percentage_missing_df
 
-#rimuove colonne con dati mancanti spora la soglia
+#seleziona dati con percentuale mancante < threshold
 def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
 
     columns_to_drop = list(percentage_df[percentage_df['Missing'] > threshold].index)
@@ -64,7 +64,7 @@ def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
 
     return original_df
 
-
+#data diventa anno, month, day nel dataframe
 def convert_date_into_day_month_year(df):
 
     df["Event.Date"] = pandas.to_datetime(df["Event.Date"])
@@ -74,7 +74,7 @@ def convert_date_into_day_month_year(df):
 
     return df
 
-
+#weekend è 1 o 0
 def add_flag_weekend(df):
 
     df.loc[(df['Event.Date'].dt.day_name().str[:3] == 'Sat') | (df['Event.Date'].dt.day_name().str[:3] == 'Sun'), 'Weekend'] = 0
@@ -82,7 +82,7 @@ def add_flag_weekend(df):
 
     return df
 
-
+#fa il merge di aeroporti con private in PRIVATE, none in NONE e poi printa (ma non taglia) i 10 più frequenti
 def merge_same_airports(df):
 
     df['Airport.Name'].replace(to_replace='(?i)^.*private.*$', value='PRIVATE', inplace=True, regex=True)
@@ -94,7 +94,7 @@ def merge_same_airports(df):
 
     return df
 
-
+#analogo di aeroporti e poi in output ci sono i 10 frequenti
 def merge_same_registrations(df):
 
     df["Registration.Number"].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
@@ -104,29 +104,32 @@ def merge_same_registrations(df):
 
     return df
 
-
+#fisso variabili a valori più standard
 def fix_values(df):
 
-    df["Make"] = df["Make"].str.title()
+    df["Make"] = df["Make"].str.title() #mette lettere grandi della casa costruttrice
 
+    #sostituisce yes e no con 1 e 0
     df["Amateur.Built"].replace(to_replace=['Yes', 'Y'], value=1, inplace=True, regex=False)
     df["Amateur.Built"].replace(to_replace=['No', 'N'], value=0, inplace=True, regex=False)
 
-    df["Injury.Severity"] = df["Injury.Severity"].str.split('(').str[0]
+    #fatal(0) diventa fatal
+    df["Injury.Severity"] = df["Injury.Severity"].str.split('(').str[0] #seleziona
 
+    #mappa unk e UNK in unknown
     df["Weather.Condition"].replace(to_replace=['Unk', 'UNK'], value='UNKNOWN', inplace=True, regex=False)
 
+    #toglie dati sconosciuti
     df = df[df['Weather.Condition'] != 'UNKNOWN']
     df = df[df["Injury.Severity"] != "Unavailable"]
     df= df[df["Injury.Severity"] != "Serious"]
     df = df[df["Injury.Severity"] != "Minor"]
     df = df[df["Broad.phase.of.flight"] != "Unknown"]
-
     df = df[df["Year"] >= 1982]
 
     return df
 
-
+#aggiunge city e state al dataframe
 def split_city_state(df):
 
     df["City"] = df["Location"].str.split(",").str[0]
@@ -323,6 +326,9 @@ def main():
     plot_injuries(city_state_df)
 
     #train_tree_classifier(city_state_df)
+    #randomico fisserà il baseline
+    #se è sbilanciato, prova a vedere cosa succede se metto tutto uguale alla classe più frequente, metti che trovo 80%, poi alla fine dovrò trovare una performance superiore di questa alla fine
+    #poi svm e naive bayes
 
 
 if __name__ == '__main__':

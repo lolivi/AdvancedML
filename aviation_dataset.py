@@ -64,7 +64,7 @@ def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
 
     return original_df
 
-
+#mette le date come MM/DD/YYYY
 def convert_date_into_day_month_year(df):
 
     df["Event.Date"] = pandas.to_datetime(df["Event.Date"])

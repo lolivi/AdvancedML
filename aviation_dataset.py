@@ -74,7 +74,7 @@ def convert_date_into_day_month_year(df):
 
     return df
 
-
+#dice se 2 giorni sono un weekend
 def add_flag_weekend(df):
 
     df.loc[(df['Event.Date'].dt.day_name().str[:3] == 'Sat') | (df['Event.Date'].dt.day_name().str[:3] == 'Sun'), 'Weekend'] = 0
@@ -82,7 +82,7 @@ def add_flag_weekend(df):
 
     return df
 
-
+#unisce i dati dello stesso aeroporto
 def merge_same_airports(df):
 
     df['Airport.Name'].replace(to_replace='(?i)^.*private.*$', value='PRIVATE', inplace=True, regex=True)
@@ -94,7 +94,7 @@ def merge_same_airports(df):
 
     return df
 
-
+#unisce i dati dello stesso aereo
 def merge_same_registrations(df):
 
     df["Registration.Number"].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
@@ -104,7 +104,7 @@ def merge_same_registrations(df):
 
     return df
 
-
+#sceglie una nomenclatura
 def fix_values(df):
 
     df["Make"] = df["Make"].str.title()
@@ -126,7 +126,7 @@ def fix_values(df):
 
     return df
 
-
+#
 def split_city_state(df):
 
     df["City"] = df["Location"].str.split(",").str[0]

@@ -93,7 +93,14 @@ def merge_same_airports(df):
     print(df["Airport.Name"].value_counts().nlargest(10))
 
     return df
+    
+def merge_engine_type(df):
 
+    
+    df['Engine.Type'].replace(to_replace='None', value='NONE', inplace=True, regex=False)
+    
+    return df
+   
 #analogo di aeroporti e poi in output ci sono i 10 frequenti
 def merge_same_registrations(df):
 
@@ -188,7 +195,7 @@ def plot_phase_of_flight(df):
     phase_of_flight.plot.bar(stacked=True)
 
     plt.xlabel('')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    
     plt.tight_layout()
     plt.show()
 
@@ -210,13 +217,58 @@ def plot_number_of_engines(df):
 
 def plot_injuries(df):
 
-    sns.catplot(x='Total.Minor.Injuries', y='Total.Fatal.Injuries', data=df)
+#    accidents_according_to_weather = df.groupby("Weather.Condition")["Event.Id"].count()
+#    accidents_according_to_weather.plot.bar(stacked = True, color = ['#003366','#2990EA'])
 
+    injuries = ["Total.Fatal.Injuries","Total.Minor.Injuries","Total.Serious.Injuries","Total.Uninjured"]
+    datainj = df.groupby("Injury.Severity")[injuries].sum()
+    norm = datainj.sum(axis="columns")
+    for inj in injuries: 
+        datainj[inj]=datainj[inj]/norm
+ 
+    print(datainj.sum(axis="columns"))  
+    datainj.plot.bar(stacked = True)
+    plt.xlabel('Injury Severity')
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+
+    plt.ylabel('Frequency')
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
-
-
+    
+def plot_amateur_engines(df):
+    
+    dataeng = df.groupby("Amateur.Built")["Number.of.Engines"].value_counts(normalize = True).unstack()
+    dataeng.plot.bar(stacked = True)
+    plt.xlabel('Amateur Built?')
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    plt.ylabel('Frequency')
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.show()
+    
+def plot_flight_purpose(df):
+    
+    datapurp = df["Purpose.of.flight"].value_counts(normalize = True)
+    datapurp.plot.bar(stacked = True)
+    plt.xlabel('Purpose of flight')
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    plt.ylabel('Frequency')
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.show()
+def plot_engine_type(df):
+    
+    datatype = df["Engine.Type"].value_counts(normalize = True)
+    datatype.plot.bar(stacked = True)
+    plt.xlabel('Engine Type')
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    plt.ylabel('Frequency')
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.show()
+    
+    
 def transform_data_into_value(df):
 
     data = df.copy()
@@ -313,9 +365,11 @@ def main():
     extended_date_df = add_flag_weekend(extended_date_df)
     merged_airport_df = merge_same_airports(extended_date_df)
     merged_registration_df = merge_same_registrations(merged_airport_df)
-    fixed_df = fix_values(merged_registration_df)
+    merged_engine_df = merge_engine_type(merged_registration_df)
+    fixed_df = fix_values(merged_engine_df)
     city_state_df = split_city_state(fixed_df)
-
+   # city_state_df.to_csv("clean_dataset.csv")
+    
     #plot_accidents_per_year(city_state_df)
     #plot_accidents_based_on_weather(city_state_df)
     #plot_accidents_based_on_injuriy(city_state_df)
@@ -323,8 +377,10 @@ def main():
     #plot_phase_of_flight(city_state_df)
     #plot_investigation_type(city_state_df)
     #plot_number_of_engines(city_state_df)
-    plot_injuries(city_state_df)
-
+    #plot_injuries(city_state_df)
+    #plot_amateur_engines(city_state_df)
+    #plot_flight_purpose(city_state_df)
+    plot_engine_type(city_state_df)
     #train_tree_classifier(city_state_df)
     #randomico fisserà il baseline
     #se è sbilanciato, prova a vedere cosa succede se metto tutto uguale alla classe più frequente, metti che trovo 80%, poi alla fine dovrò trovare una performance superiore di questa alla fine

@@ -1,3 +1,4 @@
 - Fare merge di numero motori vuoti con moda distribuzione
 - Capire quali variabile ha piu vuoti che causa il calo da 80000 a 30000
 - Scrivere funzione di augmentation
+- Fare il preprocessing solo su dati di train, ricavare media e stdev, poi usarli su dat di test

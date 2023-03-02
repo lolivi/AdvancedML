@@ -10,6 +10,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn import preprocessing
+
+#variabili da tenere con verifiche
+cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured","Weather.Condition","Broad.phase.of.flight","Year","Month"]
 
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
@@ -96,9 +100,8 @@ def merge_same_airports(df):
     
 def merge_engine_type(df):
 
-    
-    df['Engine.Type'].replace(to_replace='None', value='NONE', inplace=True, regex=False)
-    
+    df['Engine.Type'].fillna('Unknown', inplace = True)
+    #df['Engine.Type'].replace(to_replace=None, value='NONE', inplace=True, regex=False)
     return df
    
 #analogo di aeroporti e poi in output ci sono i 10 frequenti
@@ -109,6 +112,16 @@ def merge_same_registrations(df):
 
     print(df["Registration.Number"].value_counts().nlargest(10))
 
+    return df
+
+def merge_aircraftdamage(df):
+
+    df['Aircraft.damage'].fillna('Unknown', inplace = True)
+    return df
+
+def merge_purposeofflight(df):
+
+    df['Purpose.of.flight'].fillna('Unknown', inplace = True)
     return df
 
 #fisso variabili a valori più standard
@@ -129,7 +142,7 @@ def fix_values(df):
     #toglie dati sconosciuti
     df = df[df['Weather.Condition'] != 'UNKNOWN']
     df = df[df["Injury.Severity"] != "Unavailable"]
-    df= df[df["Injury.Severity"] != "Serious"]
+    df = df[df["Injury.Severity"] != "Serious"]
     df = df[df["Injury.Severity"] != "Minor"]
     df = df[df["Broad.phase.of.flight"] != "Unknown"]
     df = df[df["Year"] >= 1982]
@@ -257,6 +270,7 @@ def plot_flight_purpose(df):
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
+
 def plot_engine_type(df):
     
     datatype = df["Engine.Type"].value_counts(normalize = True)
@@ -268,16 +282,18 @@ def plot_engine_type(df):
     plt.tight_layout()
     plt.show()
     
-    
 def transform_data_into_value(df):
 
+    #binary classification
     data = df.copy()
     data = data[data["Injury.Severity"] != "Unavailable"]
     data = data[data["Injury.Severity"] != "Serious"]
     data = data[data["Injury.Severity"] != "Minor"]
     data = data[data["Injury.Severity"] != "Incident"]
 
+    #convering strings to codes
     data['Investigation.Type'] = data['Investigation.Type'].astype('category').cat.codes
+    data['Country'] = data['Country'].astype('category').cat.codes
     data['Aircraft.damage'] = data['Aircraft.damage'].astype('category').cat.codes
     data['Engine.Type'] = data['Engine.Type'].astype('category').cat.codes
     data['Purpose.of.flight'] = data['Purpose.of.flight'].astype('category').cat.codes
@@ -285,6 +301,7 @@ def transform_data_into_value(df):
     data['Broad.phase.of.flight'] = data['Broad.phase.of.flight'].astype('category').cat.codes
 
     data["Injury.Severity"] = data["Injury.Severity"].astype('category').cat.codes
+    data["Injury.Severity"].replace([-1], np.nan, inplace=True)
 
     # replace all infinite values with nan
     data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -294,19 +311,49 @@ def transform_data_into_value(df):
 
     return data
 
+def feature_selection(df,variables): #variables da eliminare
+
+    cleandf = df[variables]
+    corr_matrix = cleandf.corr()
+
+    plt.figure(figsize=(19.2,10.8),clear=True)
+    plt.title("Correlation Matrix")
+    sns.heatmap(corr_matrix, annot=True,vmin = -1,vmax = +1)
+    plt.savefig("plots/corrmatrix.png",bbox_inches='tight')
+
+    #month perché non è correlato a nulla tranne che a meteo, e quindi è ridondante
+    #country è correlato a meteo ed è ridonante
+    #broad phase of flight ha troppi vuoti
+
+    excludevars = ["Month","Country","Broad.phase.of.flight"]
+    newvars = [var for var in variables if var not in excludevars]
+    finaldf = df[newvars]
+
+    return finaldf
+
+def data_augmentation(X,y):
+
+    #print(y.value_counts()[0])
+    #print(y.value_counts()[1])
+    print(" ")
+    #data['column_name'].value_counts()[value]
 
 def prepare_train_test(df):
 
-    df = transform_data_into_value(df)
+    #df = transform_data_into_value(df)
+    columns = df.columns.values.tolist()
+    features = [col for col in columns if col != "Injury.Severity"]
 
-    X = df[['Investigation.Type', "Aircraft.damage",
-            'Number.of.Engines','Engine.Type','Purpose.of.flight',
-            'Year','Month','Day']]
-
+    X = df[features]
     y = df["Injury.Severity"]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, shuffle=True)
+    #funzioni di preprocessing
+    X = preprocessing.scale(X)
 
+    #data augmentation
+    data_augmentation(X,y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, shuffle = True, random_state = 42)
     return X_train, X_test, y_train, y_test
 
 
@@ -360,15 +407,61 @@ def main():
     get_number_of_null_values(df)
 
     percentage_missing_df = get_percentage_missing_values(df)
+
+    print(percentage_missing_df.shape[0])
+
     dropped_df = select_columns_by_missing_threshold(df, percentage_missing_df, 0.5)
+
+    print(dropped_df.shape[0])
+
     extended_date_df = convert_date_into_day_month_year(dropped_df)
+
+    print(extended_date_df.shape[0])
+
     extended_date_df = add_flag_weekend(extended_date_df)
+
+    print(extended_date_df.shape[0])
+
     merged_airport_df = merge_same_airports(extended_date_df)
+
+    print(merged_airport_df.shape[0])
+
     merged_registration_df = merge_same_registrations(merged_airport_df)
+
+    print(merged_registration_df.shape[0])
+
     merged_engine_df = merge_engine_type(merged_registration_df)
-    fixed_df = fix_values(merged_engine_df)
+
+    print(merged_engine_df.shape[0])
+
+    merged_damage_df = merge_aircraftdamage(merged_engine_df)
+
+    print(merged_damage_df.shape[0])
+
+    merged_pof_df = merge_purposeofflight(merged_damage_df)
+
+    print(merged_pof_df.shape[0])
+
+    fixed_df = fix_values(merged_pof_df)
+
+    print(fixed_df.shape[0])
+
     city_state_df = split_city_state(fixed_df)
-   # city_state_df.to_csv("clean_dataset.csv")
+
+    print(city_state_df.shape[0])
+
+    df_categorical = transform_data_into_value(city_state_df)
+
+    print(df_categorical.shape[0])
+
+    clean_df = feature_selection(df_categorical,cleanvars)
+
+    print(clean_df.shape[0])
+
+
+    prepare_train_test(clean_df)
+
+    clean_df.to_csv("clean_dataset.csv")
     
     #plot_accidents_per_year(city_state_df)
     #plot_accidents_based_on_weather(city_state_df)
@@ -380,7 +473,7 @@ def main():
     #plot_injuries(city_state_df)
     #plot_amateur_engines(city_state_df)
     #plot_flight_purpose(city_state_df)
-    plot_engine_type(city_state_df)
+    #plot_engine_type(city_state_df)
     #train_tree_classifier(city_state_df)
     #randomico fisserà il baseline
     #se è sbilanciato, prova a vedere cosa succede se metto tutto uguale alla classe più frequente, metti che trovo 80%, poi alla fine dovrò trovare una performance superiore di questa alla fine

@@ -1,0 +1,3 @@
+- Fare merge di numero motori vuoti con moda distribuzione
+- Capire quali variabile ha piu vuoti che causa il calo da 80000 a 30000
+- Scrivere funzione di augmentation

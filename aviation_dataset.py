@@ -1,16 +1,21 @@
 import os
-import pandas
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib.ticker import PercentFormatter
+from plotter import * #plotter functions
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import RidgeClassifier, LogisticRegression
+from sklearn.model_selection import GridSearchCV, learning_curve
 from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn import preprocessing
+import statistics, joblib
+
+from imblearn.over_sampling import SMOTE, RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.combine import SMOTETomek
 
 #variabili da tenere con verifiche
 cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured","Weather.Condition","Broad.phase.of.flight","Year","Month"]
@@ -18,7 +23,7 @@ cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage",
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
     assert os.path.exists(filename), 'file %s does not exist' % filename
-    df = pandas.read_csv(filename, encoding = "ISO-8859-1")
+    df = pd.read_csv(filename, encoding = "ISO-8859-1")
     return df
 
 #restituisce a schermo le colonne
@@ -49,7 +54,7 @@ def get_percentage_missing_values(df):
     percentage_missing = missing / n_rows
 
     # insert data into DataFrame (df) to display
-    percentage_missing_df = pandas.DataFrame({
+    percentage_missing_df = pd.DataFrame({
         "Missing": percentage_missing
     })
     percentage_missing_df.sort_values("Missing", ascending=False, inplace=True)
@@ -71,7 +76,7 @@ def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
 #data diventa anno, month, day nel dataframe
 def convert_date_into_day_month_year(df):
 
-    df["Event.Date"] = pandas.to_datetime(df["Event.Date"])
+    df["Event.Date"] = pd.to_datetime(df["Event.Date"])
     df["Year"] = df["Event.Date"].dt.year
     df["Month"] = df["Event.Date"].dt.month
     df["Day"] = df["Event.Date"].dt.day
@@ -93,8 +98,8 @@ def merge_same_airports(df):
     df['Airport.Name'].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
     df['Airport.Code'].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
 
-    print(df["Airport.Code"].value_counts().nlargest(10))
-    print(df["Airport.Name"].value_counts().nlargest(10))
+    #print(df["Airport.Code"].value_counts().nlargest(10))
+    #print(df["Airport.Name"].value_counts().nlargest(10))
 
     return df
     
@@ -110,7 +115,7 @@ def merge_same_registrations(df):
     df["Registration.Number"].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
     df["Registration.Number"].replace(to_replace=['unknown', 'UNK'], value="UNKNOWN", inplace=True, regex=False)
 
-    print(df["Registration.Number"].value_counts().nlargest(10))
+    #print(df["Registration.Number"].value_counts().nlargest(10))
 
     return df
 
@@ -123,6 +128,23 @@ def merge_purposeofflight(df):
 
     df['Purpose.of.flight'].fillna('Unknown', inplace = True)
     return df
+
+def merge_enginenumbers(df):
+
+    nengines = df["Number.of.Engines"].values.tolist()
+    moda = statistics.mode(nengines)
+
+    nbins = int(max(nengines)-min(nengines)+1)
+    plt.figure()
+    plt.hist(nengines, range = (min(nengines)-0.5,max(nengines)+0.5), bins=nbins)
+    plt.yscale("log")
+    plt.axvline(moda, color = "red")
+    plt.savefig("plots/nengines.png")
+
+    #df['Number.of.Engines'].fillna(moda, inplace=True) #commentare per non sostituire vuoti
+
+    return df
+
 
 #fisso variabili a valori più standard
 def fix_values(df):
@@ -157,135 +179,13 @@ def split_city_state(df):
 
     return df
 
-
-def plot_accidents_per_year(df):
-
-    accidents_per_year = df.groupby(['Year'], as_index=False)['Event.Id'].count()
-    sns.lineplot(x='Year', y='Event.Id', data=accidents_per_year, color='#2990EA')
-    plt.show()
-
-
-def plot_accidents_based_on_weather(df):
-
-    accidents_according_to_weather = df.groupby("Weather.Condition")["Event.Id"].count()
-    accidents_according_to_weather.plot.bar(stacked = True, color = ['#003366','#2990EA'])
-
-    plt.xticks(rotation=0)
-    plt.xlabel('')
-    plt.show()
-
-
-def plot_accidents_based_on_injuriy(df):
-
-    weather_accident = df.groupby("Weather.Condition")["Injury.Severity"]\
-        .value_counts(normalize=True)\
-        .unstack("Injury.Severity")
-
-    colors = list(sns.color_palette("Set2"))[:3]
-    weather_accident.plot.bar(stacked=True, color = colors)
-
-    plt.xticks(rotation=0)
-    plt.title('Fatality rate during IMC or VMC')
-    plt.xlabel('')
-    plt.legend(title="Injury Severity", loc='upper right')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
-    plt.show()
-
-
-def plot_correlation_matrix(df):
-
-    f = plt.figure(figsize=(6, 6))
-    sns.heatmap(df.corr(), vmin=-1, vmax=1, cmap="mako")
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_phase_of_flight(df):
-
-    phase_of_flight = df.groupby("Broad.phase.of.flight")["Injury.Severity"]\
-        .value_counts(normalize=True).unstack("Injury.Severity")
-
-    phase_of_flight.plot.bar(stacked=True)
-
-    plt.xlabel('')
-    
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_investigation_type(df):
-
-    sns.catplot(x='Investigation.Type', y='Total.Fatal.Injuries', data=df)
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_number_of_engines(df):
-
-    sns.catplot(x='Engine.Type', y='Total.Fatal.Injuries', data=df)
-
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
-
-def plot_injuries(df):
-
-#    accidents_according_to_weather = df.groupby("Weather.Condition")["Event.Id"].count()
-#    accidents_according_to_weather.plot.bar(stacked = True, color = ['#003366','#2990EA'])
-
-    injuries = ["Total.Fatal.Injuries","Total.Minor.Injuries","Total.Serious.Injuries","Total.Uninjured"]
-    datainj = df.groupby("Injury.Severity")[injuries].sum()
-    norm = datainj.sum(axis="columns")
-    for inj in injuries: 
-        datainj[inj]=datainj[inj]/norm
- 
-    print(datainj.sum(axis="columns"))  
-    datainj.plot.bar(stacked = True)
-    plt.xlabel('Injury Severity')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
-
-    plt.ylabel('Frequency')
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
-    
-def plot_amateur_engines(df):
-    
-    dataeng = df.groupby("Amateur.Built")["Number.of.Engines"].value_counts(normalize = True).unstack()
-    dataeng.plot.bar(stacked = True)
-    plt.xlabel('Amateur Built?')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
-    plt.ylabel('Frequency')
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
-    
-def plot_flight_purpose(df):
-    
-    datapurp = df["Purpose.of.flight"].value_counts(normalize = True)
-    datapurp.plot.bar(stacked = True)
-    plt.xlabel('Purpose of flight')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
-    plt.ylabel('Frequency')
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
-
-def plot_engine_type(df):
-    
-    datatype = df["Engine.Type"].value_counts(normalize = True)
-    datatype.plot.bar(stacked = True)
-    plt.xlabel('Engine Type')
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
-    plt.ylabel('Frequency')
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
-    
 def transform_data_into_value(df):
+
+    print("\n- Binary Classification e Conversione in Categorie")
 
     #binary classification
     data = df.copy()
+
     data = data[data["Injury.Severity"] != "Unavailable"]
     data = data[data["Injury.Severity"] != "Serious"]
     data = data[data["Injury.Severity"] != "Minor"]
@@ -314,29 +214,48 @@ def transform_data_into_value(df):
 def feature_selection(df,variables): #variables da eliminare
 
     cleandf = df[variables]
-    corr_matrix = cleandf.corr()
-
-    plt.figure(figsize=(19.2,10.8),clear=True)
-    plt.title("Correlation Matrix")
-    sns.heatmap(corr_matrix, annot=True,vmin = -1,vmax = +1)
-    plt.savefig("plots/corrmatrix.png",bbox_inches='tight')
+    plot_correlation_matrix(cleandf)
 
     #month perché non è correlato a nulla tranne che a meteo, e quindi è ridondante
     #country è correlato a meteo ed è ridonante
     #broad phase of flight ha troppi vuoti
+    #excludevars = ["Month","Country","Broad.phase.of.flight"]
 
-    excludevars = ["Month","Country","Broad.phase.of.flight"]
+    #escludiamo anche i total injuries perché basterebbe fatal injuries per il 100%, forniamo al classificatore un informazione ridonndante con l'output
+    excludevars = ["Month","Country","Broad.phase.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
+
     newvars = [var for var in variables if var not in excludevars]
     finaldf = df[newvars]
 
     return finaldf
 
-def data_augmentation(X,y):
+def preprocessing_data(X_train,X_test):
 
-    #print(y.value_counts()[0])
-    #print(y.value_counts()[1])
-    print(" ")
-    #data['column_name'].value_counts()[value]
+    #scaler with mean and dev standard
+    scaler = preprocessing.StandardScaler().fit(X_train)
+    mu_train = scaler.mean_
+    std_train = scaler.scale_
+
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    return X_train,X_test
+
+def data_augmentation(X,y,method = SMOTETomek(random_state=42)):
+
+    print("\n- Data Augmentation with %s" % method)
+
+    print("Pre-Augmentation:")
+    print("Class 0: %i" % y.value_counts()[0])
+    print("Class 1: %i" % y.value_counts()[1])
+
+    X, y = method.fit_resample(X, y)
+
+    print("Post-Augmentation:")
+    print("Class 0: %i" % y.value_counts()[0])
+    print("Class 1: %i" % y.value_counts()[1])
+
+    return X,y
 
 def prepare_train_test(df):
 
@@ -345,53 +264,73 @@ def prepare_train_test(df):
     features = [col for col in columns if col != "Injury.Severity"]
 
     X = df[features]
+    #X = df[["Total.Fatal.Injuries"]] #99% with only this
+
     y = df["Injury.Severity"]
 
-    #funzioni di preprocessing
-    X = preprocessing.scale(X)
+    return X,y
 
-    #data augmentation
-    data_augmentation(X,y)
+def split_train_test(X,y):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, shuffle = True, random_state = 42)
+
+    print("\n- Split Train/Test")
+    print("Train: %i" % len(X_train))
+    print("Test: %i" % len(X_test))
+
     return X_train, X_test, y_train, y_test
 
+def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output):
 
-def train_tree_classifier(df):
-
-    print("Training...")
-    X_train, X_test, y_train, y_test = prepare_train_test(df)
-    n_features = X_train.shape[1]
-    tree = RandomForestClassifier()
-
-    param_grid = {
-        'min_samples_split': [2, 5, 7],
-        'max_depth': [5, 10, 15, 20],
-        'max_features': ['sqrt', 'log2', n_features],
-        'min_samples_leaf': [2, 3, 4],
-        'n_estimators': [100, 500, 1000, 1500],
-        'ccp_alpha': [0., 1e-5, 5e-5], #0 no pruning
-        "random_state": [42]
-    }
-
-    search = GridSearchCV(tree, param_grid=param_grid, n_jobs=-1, cv=3)
+    print("\n- Training...")
+    search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1_macro")
     search.fit(X_train, y_train)
 
+    print("\n- Best Parameters: ")
     print(search.best_params_)
 
-    print('Train Set')
+    print('\n- Performance:')
+    print("- Train Set:")
     evaluate(search.predict(X_train), y_train)
-    print('Test Set')
+    print("- Test Set:")
     evaluate(search.predict(X_test), y_test)
 
+    #saving model
+    if (not os.path.exists(dir_output)): os.makedirs(dir_output)
+    joblib.dump(clf,dir_output+name_output)
+
+    #plotting learning curve
+    train_sizes = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+    plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output)
 
 def evaluate(y_pred, y_gold):
 
-    for avg in ['micro', 'macro']:
+    #for avg in ['micro', 'macro']:
+    for avg in ['macro']:
         print("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
         print("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
         print("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
 
+def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
+
+    print('\n- Plotting Learning Curve:')
+
+    train_sizes, train_scores, validation_scores = learning_curve(estimator=clf, X=X_train, y=y_train, train_sizes = train_sizes,cv=n_folds, scoring="f1_macro", shuffle=True, random_state=42)
+    train_scores = train_scores * 100.
+    validation_scores = validation_scores * 100.
+
+    train_scores_mean = train_scores.mean(axis=1)
+    validation_scores_mean = validation_scores.mean(axis=1)
+
+    plt.figure()
+    plt.plot(train_sizes, train_scores_mean, label="Training F1", c="b", marker="o", linestyle="dashed")
+    plt.plot(train_sizes, validation_scores_mean, label=("Validation F1 (CV = %i)" % n_folds), c="g", marker="o",linestyle="dashed")
+    plt.ylabel("F1 [%s]" % ("%"))
+    plt.xlabel("Training Set Size")
+    plt.title("Learning Curves")
+    plt.legend(loc = "best")
+    # plt.ylim(90,100)
+    plt.savefig(directory+"learningcurve.png")
 
 def main():
 
@@ -403,86 +342,118 @@ def main():
     #vedi come prima cosa correlazione fra questo e numero di feriti
     #anno e numero di feriti
 
+    print("---------------------------")
+    print("----AVIATION DATASET-------")
+
+    print("\n- Colonne Dataframe: ")
     show_all_columns(df)
+
+    print("\n- Numero Valori Mancanti")
     get_number_of_null_values(df)
 
+    print("\n- Percentuale Valori Mancanti")
     percentage_missing_df = get_percentage_missing_values(df)
 
-    print(percentage_missing_df.shape[0])
-
+    print("\n- Escludo Colonne con Percentuale > 0.5")
     dropped_df = select_columns_by_missing_threshold(df, percentage_missing_df, 0.5)
 
-    print(dropped_df.shape[0])
-
     extended_date_df = convert_date_into_day_month_year(dropped_df)
-
-    print(extended_date_df.shape[0])
-
     extended_date_df = add_flag_weekend(extended_date_df)
 
-    print(extended_date_df.shape[0])
-
     merged_airport_df = merge_same_airports(extended_date_df)
-
-    print(merged_airport_df.shape[0])
-
     merged_registration_df = merge_same_registrations(merged_airport_df)
-
-    print(merged_registration_df.shape[0])
-
     merged_engine_df = merge_engine_type(merged_registration_df)
-
-    print(merged_engine_df.shape[0])
-
     merged_damage_df = merge_aircraftdamage(merged_engine_df)
-
-    print(merged_damage_df.shape[0])
-
     merged_pof_df = merge_purposeofflight(merged_damage_df)
+    merged_nengines_df = merge_enginenumbers(merged_pof_df)
 
-    print(merged_pof_df.shape[0])
-
-    fixed_df = fix_values(merged_pof_df)
-
-    print(fixed_df.shape[0])
-
+    fixed_df = fix_values(merged_nengines_df)
     city_state_df = split_city_state(fixed_df)
 
-    print(city_state_df.shape[0])
+    # plot_accidents_per_year(city_state_df)
+    # plot_accidents_based_on_weather(city_state_df)
+    # plot_accidents_based_on_injuriy(city_state_df)
+    # plot_correlation_matrix(city_state_df)
+    # plot_phase_of_flight(city_state_df)
+    # plot_investigation_type(city_state_df)
+    # plot_number_of_engines(city_state_df)
+    # plot_injuries(city_state_df)
+    # plot_amateur_engines(city_state_df)
+    # plot_flight_purpose(city_state_df)
+    # plot_engine_type(city_state_df)
 
+    # city_state_df.to_csv("clean_dataset.csv")
+
+    #feature selection
     df_categorical = transform_data_into_value(city_state_df)
-
-    print(df_categorical.shape[0])
-
     clean_df = feature_selection(df_categorical,cleanvars)
+    X, y = prepare_train_test(clean_df)
 
-    print(clean_df.shape[0])
+    # data augmentation
+    #method = RandomUnderSampler(random_state=42)
+    method = SMOTETomek(random_state=42)
+    X, y = data_augmentation(X, y, method)
 
+    # preprocessing
+    X_train, X_test, y_train, y_test = split_train_test(X, y)
+    X_train, X_test = preprocessing_data(X_train, X_test)
+    n_features = X_train.shape[1]
 
-    prepare_train_test(clean_df)
+    #choosing classifier
+    clf = RandomForestClassifier(random_state=42)
+    nameclf = "rndmforest.joblib"
+    dirclf = "rndmforest/"
 
-    clean_df.to_csv("clean_dataset.csv")
+    #choosing param grid
+    param_grid = {
+        'min_samples_split': [2, 5, 7],
+        'max_depth': [5, 10, 15, 20],
+        'max_features': ['sqrt', 'log2', n_features],
+        'min_samples_leaf': [2, 3, 4],
+        'n_estimators': [100, 500, 1000, 1500],
+        'ccp_alpha': [0., 1e-5, 5e-5],  # 0 no pruning
+        "random_state": [42]
+    }
+
+    '''
+    clf = SVC()
+    nameclf = "svm.joblib"
+    dirclf = "svm/"
     
-    #plot_accidents_per_year(city_state_df)
-    #plot_accidents_based_on_weather(city_state_df)
-    #plot_accidents_based_on_injuriy(city_state_df)
-    #plot_correlation_matrix(city_state_df)
-    #plot_phase_of_flight(city_state_df)
-    #plot_investigation_type(city_state_df)
-    #plot_number_of_engines(city_state_df)
-    #plot_injuries(city_state_df)
-    #plot_amateur_engines(city_state_df)
-    #plot_flight_purpose(city_state_df)
-    #plot_engine_type(city_state_df)
-    #train_tree_classifier(city_state_df)
-    #randomico fisserà il baseline
-    #se è sbilanciato, prova a vedere cosa succede se metto tutto uguale alla classe più frequente, metti che trovo 80%, poi alla fine dovrò trovare una performance superiore di questa alla fine
-    #poi svm e naive bayes
+    param_grid = {
+        "kernel": ["linear", "rbf", "poly"],
+        "C": [1.0, 10.0, 100.0],
+        "degree": [2, 3],
+        "random_state": [42]
+    }
 
+    param_grid = {
+        "kernel": ["linear"]
+    }
+    '''
+
+    '''
+    clf = LogisticRegression()
+    nameclf = "logreg.joblib"
+    dirclf = "logreg/"
+
+    param_grid = {
+        "penalty": ["l2"]
+    }
+    '''
+
+
+    cross_validation(clf,param_grid,5,X_train,y_train,X_test,y_test,nameclf,dirclf)
+
+    '''
+    clf.fit(X_train,y_train)
+    print('Train Set')
+    evaluate(clf.predict(X_train), y_train)
+    print('Test Set')
+    evaluate(clf.predict(X_test), y_test)
+    '''
 
 if __name__ == '__main__':
-
     aviation_dataset = './AviationData.csv'
-
     main()
 

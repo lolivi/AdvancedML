@@ -286,9 +286,6 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
     search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1_macro")
     search.fit(X_train, y_train)
 
-    print("\n- Best Parameters: ")
-    print(search.best_params_)
-
     print('\n- Performance:')
     print("- Train Set:")
     evaluate(search.predict(X_train), y_train)
@@ -301,8 +298,17 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
 
     #plotting learning curve
     train_sizes = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
-    plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output)
-
+    #plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output)
+    
+    resultfile=open('svm/result.txt','w')
+    
+    resultfile.write('\n SVM best parameters: \n')
+    
+    resultfile.write(search.best_params_)
+    
+    resultfile.close()
+    
+    
 def evaluate(y_pred, y_gold):
 
     #for avg in ['micro', 'macro']:

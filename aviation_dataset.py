@@ -300,22 +300,47 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
     train_sizes = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
     plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output)
     
-    resultfile=open('svm/result.txt','w')
+    if 'SVC' in str(clf).split(" ")[0]:
+        resultfile=open('svm/result.txt','w')
     
-    resultfile.write('\n SVM best parameters: \n')
-    for item in search.best_params_:
-        resultfile.write(search.best_params_[item])
+        resultfile.write('\n SVM best parameters: \n')
     
-    resultfile.close()
+        resultfile.write(str(search.best_params_))
     
+        resultfile.close()
+    if 'RandomForest' in str(clf).split(" ")[0]:
+        resultfile=open('rndmforest/result.txt','w')
+    
+        resultfile.write('\n SVM best parameters: \n')
+    
+        resultfile.write(str(search.best_params_))
+    
+        resultfile.close()
     
 def evaluate(y_pred, y_gold):
 
     #for avg in ['micro', 'macro']:
     for avg in ['macro']:
-        print("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
-        print("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
-        print("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
+        if 'SVC' in str(clf).split(" ")[0]:
+            resultfile=open('svm/result.txt','a')
+        
+            resultfile.write("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
+            resultfile.write("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
+            resultfile.write("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
+    
+        
+    
+            resultfile.close()
+    if 'RandomForest' in str(clf).split(" ")[0]:
+            resultfile=open('rndmforest/result.txt','a')
+            
+            resultfile.write("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
+            resultfile.write("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
+            resultfile.write("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
+        
+        
+            resultfile.close()
+       
 
 def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
 
@@ -434,9 +459,6 @@ def main():
         "random_state": [42]
     }
 
-    param_grid = {
-        "kernel": ["linear"]
-    }
     
 
     '''

@@ -324,6 +324,77 @@ def main():
 
     #train_tree_classifier(city_state_df)
 
+<<<<<<< Updated upstream
+=======
+    #feature selection
+    df_categorical = transform_data_into_value(city_state_df)
+    clean_df = feature_selection(df_categorical,cleanvars)
+    X, y = prepare_train_test(clean_df)
+
+    # data augmentation
+    #method = RandomUnderSampler(random_state=42)
+    method = SMOTETomek(random_state=42)
+    X, y = data_augmentation(X, y, method)
+
+    # preprocessing
+    X_train, X_test, y_train, y_test = split_train_test(X, y)
+    X_train, X_test = preprocessing_data(X_train, X_test)
+    n_features = X_train.shape[1]
+
+    #choosing classifier
+    #clf = RandomForestClassifier(random_state=42)
+    #nameclf = "rndmforest.joblib"
+    #dirclf = "rndmforest/"
+
+    #choosing param grid
+    #param_grid = {
+    #    'min_samples_split': [2, 5, 7],
+    #    'max_depth': [5, 10, 15, 20],
+    #    'max_features': ['sqrt', 'log2', n_features],
+    #    'min_samples_leaf': [2, 3, 4],
+    #    'n_estimators': [100, 500, 1000, 1500],
+    #    'ccp_alpha': [0., 1e-5, 5e-5],  # 0 no pruning
+    #    "random_state": [42]
+    #}
+
+    
+    clf = SVC()
+    nameclf = "svm.joblib"
+    dirclf = "svm/"
+    
+    param_grid = {
+        "kernel": ["linear", "rbf", "poly"],
+        "C": [1.0, 10.0, 100.0],
+        "degree": [2, 3],
+        "random_state": [42]
+    }
+
+    param_grid = {
+        "kernel": ["linear"]
+    }
+    
+
+    
+    #clf = LogisticRegression()
+    #nameclf = "logreg.joblib"
+    #dirclf = "logreg/"
+    #
+    #param_grid = {
+    #    "penalty": ["l2"]
+    #}
+    
+
+
+    cross_validation(clf,param_grid,5,X_train,y_train,X_test,y_test,nameclf,dirclf)
+
+    '''
+    clf.fit(X_train,y_train)
+    print('Train Set')
+    evaluate(clf.predict(X_train), y_train)
+    print('Test Set')
+    evaluate(clf.predict(X_test), y_test)
+    '''
+>>>>>>> Stashed changes
 
 if __name__ == '__main__':
 

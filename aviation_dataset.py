@@ -400,6 +400,7 @@ def main():
     n_features = X_train.shape[1]
 
     #choosing classifier
+    '''
     clf = RandomForestClassifier(random_state=42)
     nameclf = "rndmforest.joblib"
     dirclf = "rndmforest/"
@@ -430,7 +431,7 @@ def main():
     param_grid = {
         "kernel": ["linear"]
     }
-    '''
+    
 
     '''
     clf = LogisticRegression()

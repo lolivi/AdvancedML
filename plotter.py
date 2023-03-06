@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -79,7 +81,6 @@ def plot_injuries(df):
     for inj in injuries:
         datainj[inj] = datainj[inj] / norm
 
-    print(datainj.sum(axis="columns"))
     datainj.plot.bar(stacked=True)
     plt.xlabel('Injury Severity')
     plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
@@ -87,7 +88,7 @@ def plot_injuries(df):
     plt.ylabel('Frequency')
     plt.xticks(rotation=90)
     plt.tight_layout()
-    plt.show()
+    plt.savefig("plots/TotalInjuries.png")
 
 
 def plot_amateur_engines(df):
@@ -121,3 +122,16 @@ def plot_engine_type(df):
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
+
+def plot_output_feature(df,out,feat):
+
+    plt.figure(figsize=(19.2,10.8), clear=True)
+
+    dataplot = df.groupby(feat)[out].value_counts(normalize=True).unstack()
+    dataplot.plot.bar(stacked=True)
+    plt.xlabel(feat)
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    plt.ylabel(out)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 100)

@@ -27,7 +27,7 @@ from imblearn.under_sampling import RandomUnderSampler
 from imblearn.combine import SMOTETomek
 
 #variabili da tenere con verifiche
-cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured","Weather.Condition","Broad.phase.of.flight","Year","Month"]
+cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Weather.Condition","Broad.phase.of.flight","Year","Month"]
 
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
@@ -147,13 +147,42 @@ def merge_enginenumbers(df):
     plt.figure()
     plt.hist(nengines, range = (min(nengines)-0.5,max(nengines)+0.5), bins=nbins)
     plt.yscale("log")
+    plt.title("Number of Engines")
+    plt.xlabel("Number of Engines")
+    plt.ylabel("Events")
     plt.axvline(moda, color = "red")
     plt.savefig("plots/nengines.png")
 
-    #df['Number.of.Engines'].fillna(moda, inplace=True) #commentare per non sostituire vuoti
+    df['Number.of.Engines'].fillna(moda, inplace=True) #commentare per non sostituire vuoti
 
     return df
 
+def yearclass(y,years):
+
+    out = False #y not in years (empty bin)
+    for iy in range(10):
+        if (y+iy in years):
+            out = True
+            break
+    return out
+
+def merge_year(df):
+
+    years = df["Year"].values.tolist()
+
+    yearmin = int(min(years)/10)*10
+    yearmax = int(max(years)/10)*10 + 10
+
+    yearbins = [y for y in range(yearmin,yearmax+1,10) if yearclass(y,years)]
+    yearbins.append(yearmax)
+    yearlabels = [("%is" % y) for iy,y in enumerate(yearbins) if iy != (len(yearbins)-1)]
+
+    #df['Year'] = pd.cut(x = df['Year'], bins = yearbins, labels = yearlabels, include_lowest = True)
+
+    d = dict(enumerate(yearlabels, 1))
+    df['Year'] = np.vectorize(d.get)(np.digitize(df['Year'], yearbins))
+
+    return df
 
 #fisso variabili a valori più standard
 def fix_values(df):
@@ -176,7 +205,8 @@ def fix_values(df):
     df = df[df["Injury.Severity"] != "Serious"]
     df = df[df["Injury.Severity"] != "Minor"]
     df = df[df["Broad.phase.of.flight"] != "Unknown"]
-    df = df[df["Year"] >= 1982]
+
+    #df = df[df["Year"] >= 1982]
 
     return df
 
@@ -227,6 +257,7 @@ def transform_data_into_value(df):
     data['Purpose.of.flight'] = data['Purpose.of.flight'].astype('category').cat.codes
     data['Weather.Condition'] = data['Weather.Condition'].astype('category').cat.codes
     data['Broad.phase.of.flight'] = data['Broad.phase.of.flight'].astype('category').cat.codes
+    data['Year'] = data['Year'].astype('category').cat.codes
 
     data["Injury.Severity"] = data["Injury.Severity"].astype('category').cat.codes
     #data["Injury.Severity"].replace([-1], np.nan, inplace=True)
@@ -414,8 +445,9 @@ def main():
     merged_damage_df = merge_aircraftdamage(merged_engine_df)
     merged_pof_df = merge_purposeofflight(merged_damage_df)
     merged_nengines_df = merge_enginenumbers(merged_pof_df)
+    merged_year_df = merge_year(merged_nengines_df)
 
-    fixed_df = fix_values(merged_nengines_df)
+    fixed_df = fix_values(merged_year_df)
     city_state_df = split_city_state(fixed_df)
 
     # plot_accidents_per_year(city_state_df)
@@ -441,8 +473,27 @@ def main():
     features = [col for col in columns if col != "Injury.Severity"]
     df_training[columns].to_csv("clean_dataset.csv")
 
+    #plot with injuries and fatal-nonfatal
+    plot_injuries(df_training)
+
+    #plotting also previously excluded features
+    expanded_features = [col for col in cleanvars if (col != "Injury.Severity")]
+
+    #plot correlations with output
+    for f in expanded_features:
+        plot_output_feature(df_training, f, "Injury.Severity")
+        #plot_output_feature(df_training,"Injury.Severity",f)
+
+    #autocorrelation
+    for f1 in expanded_features:
+        for f2 in expanded_features:
+            if (f1 == f2): continue
+            plot_output_feature(df_training, f1, f2)
+
     #indici variabili categoriche e non
-    i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
+    #i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
+    #i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
+    i_cat = [ifeat for ifeat,f in enumerate(features)]
     i_num = [ifeat for ifeat,f in enumerate(features) if (ifeat not in i_cat)]
 
     #splitting
@@ -517,7 +568,12 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    # choosing param grid
+    param_grid = {
+        "random_state": [42]
+    }
+
+    cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
     clf = SVC()
     nameclf = "svm_rbf.joblib"

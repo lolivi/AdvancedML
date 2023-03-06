@@ -1,19 +1,27 @@
-import os
-
+#python libraries
+import os, statistics, joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+#plotter.py
 from plotter import * #plotter functions
-from sklearn.model_selection import train_test_split
+if (not os.path.exists("plots")): os.makedirs("plots")
+
+#sklearn models
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.linear_model import RidgeClassifier, LogisticRegression
-from sklearn.decomposition import PCA
-from sklearn.model_selection import GridSearchCV, learning_curve
-from sklearn.metrics import precision_score, recall_score, f1_score
-from sklearn import preprocessing
-import statistics, joblib, itertools
+from sklearn.naive_bayes import GaussianNB, CategoricalNB
 
+#sklearn processing functions
+from sklearn.decomposition import PCA
+from sklearn.model_selection import GridSearchCV, learning_curve, train_test_split
+from sklearn import preprocessing
+
+#sklearn metrics
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+
+#augmentation libraries
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.combine import SMOTETomek
@@ -221,7 +229,8 @@ def transform_data_into_value(df):
     data['Broad.phase.of.flight'] = data['Broad.phase.of.flight'].astype('category').cat.codes
 
     data["Injury.Severity"] = data["Injury.Severity"].astype('category').cat.codes
-    data["Injury.Severity"].replace([-1], np.nan, inplace=True)
+    #data["Injury.Severity"].replace([-1], np.nan, inplace=True)
+    data.replace([-1], np.nan, inplace=True)
 
     # replace all infinite values with nan
     data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -238,13 +247,9 @@ def feature_selection(df,variables): #variables da eliminare
 
     #month perché non è correlato a nulla tranne che a meteo, e quindi è ridondante
     #country è correlato a meteo ed è ridonante
-    #broad phase of flight ha troppi vuoti
-    #excludevars = ["Month","Country","Broad.phase.of.flight"]
-
     #escludiamo anche i total injuries perché basterebbe fatal injuries per il 100%, forniamo al classificatore un informazione ridonndante con l'output
-    #excludevars = ["Month","Country","Broad.phase.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
     excludevars = ["Month","Country","Investigation.Type","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
-    
+
     newvars = [var for var in variables if var not in excludevars]
     finaldf = df[newvars]
 
@@ -303,45 +308,63 @@ def split_train_test(X,y):
 def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output):
 
     print("\n- Training...")
-    search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1",verbose=2)
+    search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1",verbose=10)
     search.fit(X_train, y_train)
 
     print("\n- Best Parameters: ")
     print(search.best_params_)
 
+    # saving model
+    if (not os.path.exists(dir_output)): os.makedirs(dir_output)
+
+    #writing to file
+    resultfile = open(dir_output + "result.txt", "w")
+    resultfile.write("Best Parameters: \n")
+    resultfile.write(str(search.best_params_))
+
     print('\n- Performance:')
     print("- Train Set:")
-    evaluate(search.predict(X_train), y_train)
+    #writing to file
+    resultfile.write("\nPerformance:")
+    resultfile.write("\nTrain Set: \n")
+    #resultfile.close()
+    evaluate(search.predict(X_train), y_train,resultfile)
+
     print("- Test Set:")
-    evaluate(search.predict(X_test), y_test)
+    resultfile.write("\nTest Set: \n")
+    evaluate(search.predict(X_test), y_test,resultfile)
+    resultfile.close()
 
     #saving model
-    if (not os.path.exists(dir_output)): os.makedirs(dir_output)
     joblib.dump(clf,dir_output+name_output)
 
     #plotting learning curve
-    train_sizes = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+    train_sizes = [0.01,0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output) 
 
-def evaluate(y_pred, y_gold):
+def evaluate(y_pred, y_gold, resultfile):
 
-    #for avg in ['micro', 'macro']:
-    '''
-    for avg in ['micro']:
-        print("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
-        print("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
-        print("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
-    '''
+    acc = accuracy_score(y_gold, y_pred)
+    prec = precision_score(y_gold, y_pred)
+    rec = recall_score(y_gold,y_pred)
+    f1 = f1_score(y_gold,y_pred)
 
-    print("precision score: {:3f}".format(precision_score(y_gold, y_pred)))
-    print("recall score: {:3f}".format(recall_score(y_gold, y_pred)))
-    print("F1 score: {:3f}".format(f1_score(y_gold, y_pred)))
+    #resultfile = open(file_out, 'a')
+    resultfile.write("\nAccuracy score: {:3f}".format(acc))
+    resultfile.write("\nPrecision score: {:3f}".format(prec))
+    resultfile.write("\nRecall score: {:3f}".format(rec))
+    resultfile.write("\nF1 score: {:3f}".format(f1))
+
+    print("Accuracy score: {:3f}".format(acc))
+    print("Precision score: {:3f}".format(prec))
+    print("Recall score: {:3f}".format(rec))
+    print("F1 score: {:3f}".format(f1))
         
 def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
 
     print('\n- Plotting Learning Curve:')
 
-    train_sizes, train_scores, validation_scores = learning_curve(estimator=clf, X=X_train, y=y_train, train_sizes = train_sizes,cv=n_folds, scoring="f1_micro", shuffle=True, random_state=42)
+    train_sizes, train_scores, validation_scores = learning_curve(estimator=clf, X=X_train, y=y_train, train_sizes = train_sizes,cv=n_folds, scoring="f1", shuffle=True, random_state=42)
     train_scores = train_scores * 100.
     validation_scores = validation_scores * 100.
 
@@ -355,7 +378,6 @@ def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
     plt.xlabel("Training Set Size")
     plt.title("Learning Curves")
     plt.legend(loc = "best")
-    # plt.ylim(90,100)
     plt.savefig(directory+"learningcurve.png")
 
 def main():
@@ -408,8 +430,6 @@ def main():
     # plot_flight_purpose(city_state_df)
     # plot_engine_type(city_state_df)
 
-    # city_state_df.to_csv("clean_dataset.csv")
-
     #feature selection
     df_categorical = transform_data_into_value(city_state_df)
     clean_df = feature_selection(df_categorical,cleanvars)
@@ -419,8 +439,12 @@ def main():
     df_training = cleaning_nan(city_state_df)
     columns = clean_df.columns.values.tolist()
     features = [col for col in columns if col != "Injury.Severity"]
-    df_training[columns].to_csv("clean_dataset.csv") 
-    
+    df_training[columns].to_csv("clean_dataset.csv")
+
+    #indici variabili categoriche e non
+    i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
+    i_num = [ifeat for ifeat,f in enumerate(features) if (ifeat not in i_cat)]
+
     #splitting
     X_train, X_test, y_train, y_test = split_train_test(X, y)
     print("\n- Split Train/Test")
@@ -428,9 +452,11 @@ def main():
     print("Test: %i" % len(X_test))
 
     # data augmentation
+    #method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
-    #method = SMOTETomek(random_state=42)
-    method = SMOTE(random_state=42)
+    #method = SMOTE(random_state=42)
+    method = SMOTETomek(random_state=42)
+
     print("\n- Data Augmentation with %s" % method)
     print("Pre-Augmentation:")
     print("Train:")
@@ -448,26 +474,32 @@ def main():
     print("Class 0: %i" % y_test.count(0))
     print("Class 1: %i" % y_test.count(1))
 
-
-    print(X_train[0])
+    #dividing in categorical and numerical data for naive bayes
+    X_train_cat, X_test_cat = [],[]
+    X_train_num, X_test_num = [],[]
+    for x in X_train:
+        X_train_cat.append(np.array(x)[i_cat])
+        X_train_num.append(np.array(x)[i_num])
+    for x in X_test:
+        X_test_cat.append(np.array(x)[i_cat])
+        X_test_num.append(np.array(x)[i_num])
 
     #preprocessing
     X_train, X_test = preprocessing_data(X_train, X_test)
 
-    print(X_train[0])
-
     baseline = max(y_test.count(0), y_test.count(1))/len(y_test)
     w_0 = 1/y_test.count(0)
     w_1 = 1/y_test.count(1)
+    print("\n- Baseline Test: %.2f" % baseline)
     
     # dimensionality reduction via pca
     n_features = X_train.shape[1]
     n_components = 8
     n_components = min(n_components,n_features)
-    X_train, X_test = data_reduction(n_components,X_train,y_train,X_test)
+    #X_train, X_test = data_reduction(n_components,X_train,y_train,X_test)
 
     n_features = X_train.shape[1]
-    print("Training con %i Features" % n_features)
+    print("\n- Training con %i Features: %s" % (n_features, features))
 
     #choosing classifier
     clf = RandomForestClassifier()
@@ -477,7 +509,7 @@ def main():
     #choosing param grid
     param_grid = {
         'min_samples_split': [2, 5, 7],
-        'max_depth': [5, 10, 15, 20],
+        'max_depth': [10, 50, 100, None],
         'max_features': ['sqrt', 'log2', n_features],
         'min_samples_leaf': [2, 3, 4],
         'n_estimators': [100, 500, 1000, 1500],
@@ -485,45 +517,94 @@ def main():
         "random_state": [42]
     }
 
-    #best one
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+
+    clf = SVC()
+    nameclf = "svm_rbf.joblib"
+    dirclf = "svm_rbf/"
+
     param_grid = {
-        'min_samples_split': [2],
-        'max_depth': [20],
-        'max_features': ['log2'],
-        'min_samples_leaf': [2],
-        'n_estimators': [100],
-        'ccp_alpha': [1e-5],  # 0 no pruning
+        "kernel": ["rbf"],
+        "C": [1.0, 10.0, 100.0],
+        "gamma": ["scale", "auto"],
         "random_state": [42]
     }
 
-    '''
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+
     clf = SVC()
-    nameclf = "svm.joblib"
-    dirclf = "svm/"
-    
+    nameclf = "svm_lin.joblib"
+    dirclf = "svm_lin/"
+
     param_grid = {
-        "kernel": ["linear", "rbf", "poly"],
+        "kernel": ["linear"],
+        "C": [1.0, 10.0, 100.0],
+        "random_state": [42]
+    }
+
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+
+    clf = SVC()
+    nameclf = "svm_poly.joblib"
+    dirclf = "svm_poly/"
+
+    param_grid = {
+        "kernel": ["poly"],
         "C": [1.0, 10.0, 100.0],
         "degree": [2, 3],
+        "gamma": ["scale", "auto"],
         "random_state": [42]
     }
 
-    param_grid = {
-        "kernel": ["linear"]
-    }
-    '''
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
-    '''
-    clf = LogisticRegression()
-    nameclf = "logreg.joblib"
-    dirclf = "logreg/"
+    clf = SVC()
+    nameclf = "svm_sigmoid.joblib"
+    dirclf = "svm_sigmoid/"
 
     param_grid = {
-        "penalty": ["l2"]
+        "kernel": ["sigmoid"],
+        "C": [1.0, 10.0, 100.0],
+        "gamma": ["scale", "auto"],
+        "random_state": [42]
     }
-    '''
-    
-    cross_validation(clf,param_grid,5,X_train,y_train,X_test,y_test,nameclf,dirclf)
+
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+
+    #naive bayes
+    #si basa su ipotesi distribuzione feature
+    # gaussian -> serve una distribuzione con media e varianza
+    #          -> Quindi o normalizziamo con scale
+    #          -> Se non normalizziamo, utilizzamo solo feature non categoriche
+
+    clf = GaussianNB()
+    nameclf = "gnb.joblib"
+    dirclf = "gaussiannb/"
+
+    param_grid = {
+        "var_smoothing": [1e-10,1e-9,1e-8]
+    }
+
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    #X_train_num, X_test_num = preprocessing_data(X_train_num, X_test_num)
+    #cross_validation(clf, param_grid, 5, X_train_num, y_train, X_test_num, y_test, nameclf, dirclf)
+
+    # multinomial si aspetta frequenze (per esempio in un testo vuole la frequenza di una parola)
+    # bernoulli si aspetta binari (per esempio in un testo se una parola c'è o no)
+
+    # categorical naive bayes -> Si basa su feature categoriche
+    # La utilizziamo con feature solo categoriche senza normalizzazione
+
+    clf = CategoricalNB()
+    nameclf = "cnb.joblib"
+    dirclf = "categoricalnb/"
+
+    param_grid = {
+        "alpha": [0.1, 0.5, 1, 1.5],
+        "fit_prior": [True, False]
+    }
+
+    cross_validation(clf,param_grid,5,X_train_cat,y_train,X_test_cat,y_test,nameclf,dirclf)
 
     '''
     clf.fit(X_train,y_train)

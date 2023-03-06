@@ -1,3 +1,0 @@
-
- SVM best parameters: 
-{'kernel': 'linear'}

@@ -8,10 +8,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import RidgeClassifier, LogisticRegression
+from sklearn.decomposition import PCA
 from sklearn.model_selection import GridSearchCV, learning_curve
 from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn import preprocessing
-import statistics, joblib
+import statistics, joblib, itertools
 
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
@@ -179,6 +180,25 @@ def split_city_state(df):
 
     return df
 
+def cleaning_nan(df): #same as transform_data_into_value without conversion (to save csv)
+
+    data = df.copy()
+
+    #binary classification
+    data = data[data["Injury.Severity"] != "Unavailable"]
+    data = data[data["Injury.Severity"] != "Serious"]
+    data = data[data["Injury.Severity"] != "Minor"]
+    data = data[data["Injury.Severity"] != "Incident"]
+
+    # replace all infinite values with nan
+    data.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # remove all nan values
+    data.dropna(inplace=True)
+
+    return data
+
+
 def transform_data_into_value(df):
 
     print("\n- Binary Classification e Conversione in Categorie")
@@ -222,8 +242,9 @@ def feature_selection(df,variables): #variables da eliminare
     #excludevars = ["Month","Country","Broad.phase.of.flight"]
 
     #escludiamo anche i total injuries perché basterebbe fatal injuries per il 100%, forniamo al classificatore un informazione ridonndante con l'output
-    excludevars = ["Month","Country","Broad.phase.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
-
+    #excludevars = ["Month","Country","Broad.phase.of.flight","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
+    excludevars = ["Month","Country","Investigation.Type","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
+    
     newvars = [var for var in variables if var not in excludevars]
     finaldf = df[newvars]
 
@@ -236,6 +257,10 @@ def preprocessing_data(X_train,X_test):
     mu_train = scaler.mean_
     std_train = scaler.scale_
 
+    print("\n- Preprocessing:")
+    print("- Media: ",mu_train)
+    print("- Dev Std: ",std_train)
+
     X_train = scaler.transform(X_train)
     X_test = scaler.transform(X_test)
 
@@ -243,19 +268,17 @@ def preprocessing_data(X_train,X_test):
 
 def data_augmentation(X,y,method = SMOTETomek(random_state=42)):
 
-    print("\n- Data Augmentation with %s" % method)
-
-    print("Pre-Augmentation:")
-    print("Class 0: %i" % y.value_counts()[0])
-    print("Class 1: %i" % y.value_counts()[1])
-
     X, y = method.fit_resample(X, y)
-
-    print("Post-Augmentation:")
-    print("Class 0: %i" % y.value_counts()[0])
-    print("Class 1: %i" % y.value_counts()[1])
-
     return X,y
+
+def data_reduction(nfeatures,X_train,y_train,X_test):
+
+    pca = PCA(n_components = nfeatures, random_state=42)
+    pca.fit(X_train,y_train)
+    X_train = pca.transform(X_train)
+    X_test = pca.transform(X_test)
+
+    return X_train,X_test
 
 def prepare_train_test(df):
 
@@ -265,25 +288,22 @@ def prepare_train_test(df):
 
     X = df[features]
     #X = df[["Total.Fatal.Injuries"]] #99% with only this
-
     y = df["Injury.Severity"]
 
+    X = X.values.tolist()
+    y = y.values.tolist()
+    
     return X,y
 
 def split_train_test(X,y):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, shuffle = True, random_state = 42)
-
-    print("\n- Split Train/Test")
-    print("Train: %i" % len(X_train))
-    print("Test: %i" % len(X_test))
-
     return X_train, X_test, y_train, y_test
 
 def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output):
 
     print("\n- Training...")
-    search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1_macro")
+    search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1",verbose=2)
     search.fit(X_train, y_train)
 
     print("\n- Best Parameters: ")
@@ -301,21 +321,27 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
 
     #plotting learning curve
     train_sizes = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
-    plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output)
+    plot_learningcurve(clf,X_train,y_train,train_sizes,ncv,dir_output) 
 
 def evaluate(y_pred, y_gold):
 
     #for avg in ['micro', 'macro']:
-    for avg in ['macro']:
+    '''
+    for avg in ['micro']:
         print("precision score {}: {:3f}".format(avg, precision_score(y_gold, y_pred, average=avg)))
         print("recall score {}: {:3f}".format(avg, recall_score(y_gold, y_pred, average=avg)))
         print("F1 score {}: {:3f}".format(avg, f1_score(y_gold, y_pred, average=avg)))
+    '''
 
+    print("precision score: {:3f}".format(precision_score(y_gold, y_pred)))
+    print("recall score: {:3f}".format(recall_score(y_gold, y_pred)))
+    print("F1 score: {:3f}".format(f1_score(y_gold, y_pred)))
+        
 def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
 
     print('\n- Plotting Learning Curve:')
 
-    train_sizes, train_scores, validation_scores = learning_curve(estimator=clf, X=X_train, y=y_train, train_sizes = train_sizes,cv=n_folds, scoring="f1_macro", shuffle=True, random_state=42)
+    train_sizes, train_scores, validation_scores = learning_curve(estimator=clf, X=X_train, y=y_train, train_sizes = train_sizes,cv=n_folds, scoring="f1_micro", shuffle=True, random_state=42)
     train_scores = train_scores * 100.
     validation_scores = validation_scores * 100.
 
@@ -389,18 +415,62 @@ def main():
     clean_df = feature_selection(df_categorical,cleanvars)
     X, y = prepare_train_test(clean_df)
 
+    # saving csv
+    df_training = cleaning_nan(city_state_df)
+    columns = clean_df.columns.values.tolist()
+    features = [col for col in columns if col != "Injury.Severity"]
+    df_training[columns].to_csv("clean_dataset.csv") 
+    
+    #splitting
+    X_train, X_test, y_train, y_test = split_train_test(X, y)
+    print("\n- Split Train/Test")
+    print("Train: %i" % len(X_train))
+    print("Test: %i" % len(X_test))
+
     # data augmentation
     #method = RandomUnderSampler(random_state=42)
-    method = SMOTETomek(random_state=42)
-    X, y = data_augmentation(X, y, method)
+    #method = SMOTETomek(random_state=42)
+    method = SMOTE(random_state=42)
+    print("\n- Data Augmentation with %s" % method)
+    print("Pre-Augmentation:")
+    print("Train:")
+    print("Class 0: %i" % y_train.count(0))
+    print("Class 1: %i" % y_train.count(1))
+    print("Test:")
+    print("Class 0: %i" % y_test.count(0))
+    print("Class 1: %i" % y_test.count(1))
+    X_train, y_train = data_augmentation(X_train, y_train, method)
+    print("Post-Augmentation:")
+    print("Train:")
+    print("Class 0: %i" % y_train.count(0))
+    print("Class 1: %i" % y_train.count(1))
+    print("Test:")
+    print("Class 0: %i" % y_test.count(0))
+    print("Class 1: %i" % y_test.count(1))
 
-    # preprocessing
-    X_train, X_test, y_train, y_test = split_train_test(X, y)
+
+    print(X_train[0])
+
+    #preprocessing
     X_train, X_test = preprocessing_data(X_train, X_test)
+
+    print(X_train[0])
+
+    baseline = max(y_test.count(0), y_test.count(1))/len(y_test)
+    w_0 = 1/y_test.count(0)
+    w_1 = 1/y_test.count(1)
+    
+    # dimensionality reduction via pca
     n_features = X_train.shape[1]
+    n_components = 8
+    n_components = min(n_components,n_features)
+    X_train, X_test = data_reduction(n_components,X_train,y_train,X_test)
+
+    n_features = X_train.shape[1]
+    print("Training con %i Features" % n_features)
 
     #choosing classifier
-    clf = RandomForestClassifier(random_state=42)
+    clf = RandomForestClassifier()
     nameclf = "rndmforest.joblib"
     dirclf = "rndmforest/"
 
@@ -412,6 +482,17 @@ def main():
         'min_samples_leaf': [2, 3, 4],
         'n_estimators': [100, 500, 1000, 1500],
         'ccp_alpha': [0., 1e-5, 5e-5],  # 0 no pruning
+        "random_state": [42]
+    }
+
+    #best one
+    param_grid = {
+        'min_samples_split': [2],
+        'max_depth': [20],
+        'max_features': ['log2'],
+        'min_samples_leaf': [2],
+        'n_estimators': [100],
+        'ccp_alpha': [1e-5],  # 0 no pruning
         "random_state": [42]
     }
 
@@ -441,8 +522,7 @@ def main():
         "penalty": ["l2"]
     }
     '''
-
-
+    
     cross_validation(clf,param_grid,5,X_train,y_train,X_test,y_test,nameclf,dirclf)
 
     '''
@@ -452,7 +532,7 @@ def main():
     print('Test Set')
     evaluate(clf.predict(X_test), y_test)
     '''
-
+    
 if __name__ == '__main__':
     aviation_dataset = './AviationData.csv'
     main()

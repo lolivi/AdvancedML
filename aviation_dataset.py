@@ -499,8 +499,8 @@ def main():
 
     #indici variabili categoriche e non
     #i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
-    i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
-    #i_cat = [ifeat for ifeat,f in enumerate(features)]
+    #i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
+    i_cat = [ifeat for ifeat,f in enumerate(features)]
     i_num = [ifeat for ifeat,f in enumerate(features) if (ifeat not in i_cat)]
 
     #splitting
@@ -588,7 +588,7 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
     clf = SVC()
     nameclf = "svm_lin.joblib"
@@ -614,7 +614,7 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
     clf = SVC()
     nameclf = "svm_sigmoid.joblib"
@@ -627,7 +627,7 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
     #naive bayes
     #si basa su ipotesi distribuzione feature

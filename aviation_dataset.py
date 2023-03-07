@@ -28,7 +28,7 @@ from imblearn.combine import SMOTETomek
 
 #variabili da tenere con verifiche
 cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Weather.Condition","Broad.phase.of.flight","Year","Month"]
-plotopt = True #whether to plot figs or not
+plotopt = False #whether to plot figs or not
 
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
@@ -303,8 +303,8 @@ def preprocessing_data(X_train,X_test):
 
     return X_train,X_test
 
-def data_augmentation(X,y,method = SMOTETomek(random_state=42)):
-
+def data_augmentation(X,y,method= SMOTETomek(random_state=42)):
+     #= SMOTETomek(random_state=42)
     X, y = method.fit_resample(X, y)
     return X,y
 
@@ -512,8 +512,8 @@ def main():
     # data augmentation
     #method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
-    #method = SMOTE(random_state=42)
-    method = SMOTETomek(random_state=42)
+    method = SMOTE(random_state=42)
+    #method = SMOTETomek(random_state=42)
 
     print("\n- Data Augmentation with %s" % method)
     print("Pre-Augmentation:")
@@ -583,7 +583,7 @@ def main():
 
     param_grid = {
         "kernel": ["rbf"],
-        "C": [1.0, 10.0, 100.0],
+        "C": [1.0, 10.0, 50.0],
         "gamma": ["scale", "auto"],
         "random_state": [42]
     }
@@ -596,7 +596,7 @@ def main():
 
     param_grid = {
         "kernel": ["linear"],
-        "C": [1.0, 10.0, 100.0],
+        "C": [1.0, 30.0, 50.0],
         "random_state": [42]
     }
 
@@ -608,7 +608,7 @@ def main():
 
     param_grid = {
         "kernel": ["poly"],
-        "C": [1.0, 10.0, 100.0],
+        "C": [1.0, 10.0, 50.0],
         "degree": [2, 3],
         "gamma": ["scale", "auto"],
         "random_state": [42]
@@ -622,7 +622,7 @@ def main():
 
     param_grid = {
         "kernel": ["sigmoid"],
-        "C": [1.0, 10.0, 100.0],
+        "C": [1.0, 10.0, 50.0],
         "gamma": ["scale", "auto"],
         "random_state": [42]
     }

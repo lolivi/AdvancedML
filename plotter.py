@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -35,12 +37,13 @@ def plot_accidents_based_on_injuriy(df):
 
 
 def plot_correlation_matrix(df):
-    f = plt.figure(figsize=(10,10))
+    
+    f = plt.figure(figsize = (10,10))
     #sns.heatmap(df.corr(), vmin=-1, vmax=1, cmap="mako")
     sns.heatmap(df.corr(), vmin=-1, vmax=1, annot = True)
     plt.title("Correlation Matrix")
     plt.tight_layout()
-    plt.savefig("plots/corrmatrix.png", bbox_inches='tight')
+    plt.savefig("plots/corrmatrix.png", bbox_inches='tight', dpi = 200)
 
 
 def plot_phase_of_flight(df):
@@ -79,15 +82,15 @@ def plot_injuries(df):
     for inj in injuries:
         datainj[inj] = datainj[inj] / norm
 
-    print(datainj.sum(axis="columns"))
     datainj.plot.bar(stacked=True)
     plt.xlabel('Injury Severity')
     plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
 
     plt.ylabel('Frequency')
     plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.show()
+    plt.legend(bbox_to_anchor=(1.05,1.02), loc="upper left")
+    #plt.tight_layout()
+    plt.savefig("plots/TotalInjuries.png",dpi = 200, bbox_inches='tight')
 
 
 def plot_amateur_engines(df):
@@ -121,3 +124,18 @@ def plot_engine_type(df):
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
+
+def plot_output_feature(df,out,feat):
+
+    plt.figure(figsize=(9.6,5.4), clear=True)
+
+    dataplot = df.groupby(feat)[out].value_counts(normalize=True).unstack()
+    dataplot.plot.bar(stacked=True)
+    plt.xlabel(feat)
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+    plt.ylabel(out)
+    plt.xticks(rotation=90)
+    plt.legend(bbox_to_anchor=(1.05,1.02), loc="upper left")
+    #plt.tight_layout()
+    plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 200, bbox_inches='tight')
+    plt.close("all")

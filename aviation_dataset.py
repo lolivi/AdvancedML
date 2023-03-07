@@ -28,6 +28,7 @@ from imblearn.combine import SMOTETomek
 
 #variabili da tenere con verifiche
 cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Weather.Condition","Broad.phase.of.flight","Year","Month"]
+plotopt = True #whether to plot figs or not
 
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
@@ -353,16 +354,18 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
     resultfile.write("Best Parameters: \n")
     resultfile.write(str(search.best_params_))
 
+    resultfile.write("\n\nBest Validation Score: \n")
+    resultfile.write(str(search.best_score_))
+
     print('\n- Performance:')
     print("- Train Set:")
     #writing to file
-    resultfile.write("\nPerformance:")
-    resultfile.write("\nTrain Set: \n")
+    resultfile.write("\n\nScore Train Set:")
     #resultfile.close()
     evaluate(search.predict(X_train), y_train,resultfile)
 
     print("- Test Set:")
-    resultfile.write("\nTest Set: \n")
+    resultfile.write("\n\nScore Test Set:")
     evaluate(search.predict(X_test), y_test,resultfile)
     resultfile.close()
 
@@ -473,27 +476,29 @@ def main():
     features = [col for col in columns if col != "Injury.Severity"]
     df_training[columns].to_csv("clean_dataset.csv")
 
-    #plot with injuries and fatal-nonfatal
-    plot_injuries(df_training)
+    if (plotopt):
 
-    #plotting also previously excluded features
-    expanded_features = [col for col in cleanvars if (col != "Injury.Severity")]
+        #plot with injuries and fatal-nonfatal
+        plot_injuries(df_training)
 
-    #plot correlations with output
-    for f in expanded_features:
-        plot_output_feature(df_training, f, "Injury.Severity")
-        #plot_output_feature(df_training,"Injury.Severity",f)
+        #plotting also previously excluded features
+        expanded_features = [col for col in cleanvars if (col != "Injury.Severity")]
 
-    #autocorrelation
-    for f1 in expanded_features:
-        for f2 in expanded_features:
-            if (f1 == f2): continue
-            plot_output_feature(df_training, f1, f2)
+        #plot correlations with output
+        for f in expanded_features:
+            plot_output_feature(df_training, f, "Injury.Severity")
+            plot_output_feature(df_training,"Injury.Severity",f)
+
+        #autocorrelation
+        for f1 in expanded_features:
+            for f2 in expanded_features:
+                if (f1 == f2): continue
+                plot_output_feature(df_training, f1, f2)
 
     #indici variabili categoriche e non
     #i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
-    #i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
-    i_cat = [ifeat for ifeat,f in enumerate(features)]
+    i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
+    #i_cat = [ifeat for ifeat,f in enumerate(features)]
     i_num = [ifeat for ifeat,f in enumerate(features) if (ifeat not in i_cat)]
 
     #splitting
@@ -660,7 +665,7 @@ def main():
         "fit_prior": [True, False]
     }
 
-    cross_validation(clf,param_grid,5,X_train_cat,y_train,X_test_cat,y_test,nameclf,dirclf)
+    #cross_validation(clf,param_grid,5,X_train_cat,y_train,X_test_cat,y_test,nameclf,dirclf)
 
     '''
     clf.fit(X_train,y_train)

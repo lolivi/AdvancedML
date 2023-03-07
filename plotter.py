@@ -135,3 +135,4 @@ def plot_output_feature(df,out,feat):
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 100)
+    plt.close("all")

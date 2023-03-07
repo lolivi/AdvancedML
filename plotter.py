@@ -37,12 +37,13 @@ def plot_accidents_based_on_injuriy(df):
 
 
 def plot_correlation_matrix(df):
-    f = plt.figure(figsize=(10,10))
+    
+    f = plt.figure(figsize = (10,10))
     #sns.heatmap(df.corr(), vmin=-1, vmax=1, cmap="mako")
     sns.heatmap(df.corr(), vmin=-1, vmax=1, annot = True)
     plt.title("Correlation Matrix")
     plt.tight_layout()
-    plt.savefig("plots/corrmatrix.png", bbox_inches='tight')
+    plt.savefig("plots/corrmatrix.png", bbox_inches='tight', dpi = 200)
 
 
 def plot_phase_of_flight(df):
@@ -87,8 +88,9 @@ def plot_injuries(df):
 
     plt.ylabel('Frequency')
     plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig("plots/TotalInjuries.png")
+    plt.legend(bbox_to_anchor=(1.05,1.02), loc="upper left")
+    #plt.tight_layout()
+    plt.savefig("plots/TotalInjuries.png",dpi = 200, bbox_inches='tight')
 
 
 def plot_amateur_engines(df):
@@ -125,7 +127,7 @@ def plot_engine_type(df):
 
 def plot_output_feature(df,out,feat):
 
-    plt.figure(figsize=(19.2,10.8), clear=True)
+    plt.figure(figsize=(9.6,5.4), clear=True)
 
     dataplot = df.groupby(feat)[out].value_counts(normalize=True).unstack()
     dataplot.plot.bar(stacked=True)
@@ -133,6 +135,7 @@ def plot_output_feature(df,out,feat):
     plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
     plt.ylabel(out)
     plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 100)
+    plt.legend(bbox_to_anchor=(1.05,1.02), loc="upper left")
+    #plt.tight_layout()
+    plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 200, bbox_inches='tight')
     plt.close("all")

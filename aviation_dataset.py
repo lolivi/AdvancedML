@@ -478,6 +478,8 @@ def main():
 
     if (plotopt):
 
+        print("\n- Plotting...")
+
         #plot with injuries and fatal-nonfatal
         plot_injuries(df_training)
 
@@ -573,12 +575,7 @@ def main():
         "random_state": [42]
     }
 
-    # choosing param grid
-    param_grid = {
-        "random_state": [42]
-    }
-
-    cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
 
     clf = SVC()
     nameclf = "svm_rbf.joblib"

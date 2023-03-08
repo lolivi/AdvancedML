@@ -510,9 +510,9 @@ def main():
     print("Test: %i" % len(X_test))
 
     # data augmentation
-    #method = RandomOverSampler(random_state=42)
+    method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
-    method = SMOTE(random_state=42)
+    #method = SMOTE(random_state=42)
     #method = SMOTETomek(random_state=42)
 
     print("\n- Data Augmentation with %s" % method)

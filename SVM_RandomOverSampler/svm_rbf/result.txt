@@ -1,0 +1,17 @@
+Best Parameters: 
+{'C': 50.0, 'gamma': 'scale', 'kernel': 'rbf', 'random_state': 42}
+
+Best Validation Score: 
+0.8848770436178182
+
+Score Train Set:
+Accuracy score: 0.889142
+Precision score: 0.883960
+Recall score: 0.895889
+F1 score: 0.889885
+
+Score Test Set:
+Accuracy score: 0.886357
+Precision score: 0.978554
+Recall score: 0.887947
+F1 score: 0.931052

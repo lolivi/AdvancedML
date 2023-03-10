@@ -28,7 +28,7 @@ from imblearn.combine import SMOTETomek
 
 #variabili da tenere con verifiche
 cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Weather.Condition","Broad.phase.of.flight","Year","Month"]
-plotopt = True #whether to plot figs or not
+plotopt = False #whether to plot figs or not
 
 #restituisce il dataframe di pandas
 def read_file_w_pandas(filename):
@@ -337,9 +337,14 @@ def split_train_test(X,y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, shuffle = True, random_state = 42)
     return X_train, X_test, y_train, y_test
 
-def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output):
+def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output, n_components = 8):
 
     print("\n- Training...")
+
+    if (n_components != 8):
+        dir_output = dir_output.replace("/","_%i/" % (n_components))
+        X_train, X_test = data_reduction(n_components,X_train,y_train,X_test) #pca components
+
     search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1",verbose=10)
     search.fit(X_train, y_train)
 
@@ -499,8 +504,8 @@ def main():
 
     #indici variabili categoriche e non
     #i_cat = [ifeat for ifeat,f in enumerate(features) if (f != "Number.of.Engines" and f != "Year")]
-    i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
-    #i_cat = [ifeat for ifeat,f in enumerate(features)]
+    #i_cat = [ifeat for ifeat, f in enumerate(features) if (f != "Number.of.Engines")]
+    i_cat = [ifeat for ifeat,f in enumerate(features)]
     i_num = [ifeat for ifeat,f in enumerate(features) if (ifeat not in i_cat)]
 
     #splitting
@@ -510,10 +515,12 @@ def main():
     print("Test: %i" % len(X_test))
 
     # data augmentation
+    method = None #no augmentation
     #method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
     #method = SMOTE(random_state=42)
-    method = SMOTETomek(random_state=42)
+    #method = SMOTETomek(random_state=42)
+    if (not method): weights = True
 
     print("\n- Data Augmentation with %s" % method)
     print("Pre-Augmentation:")
@@ -523,7 +530,7 @@ def main():
     print("Test:")
     print("Class 0: %i" % y_test.count(0))
     print("Class 1: %i" % y_test.count(1))
-    X_train, y_train = data_augmentation(X_train, y_train, method)
+    if (method): X_train, y_train = data_augmentation(X_train, y_train, method)
     print("Post-Augmentation:")
     print("Train:")
     print("Class 0: %i" % y_train.count(0))
@@ -546,15 +553,15 @@ def main():
     X_train, X_test = preprocessing_data(X_train, X_test)
 
     baseline = max(y_test.count(0), y_test.count(1))/len(y_test)
-    w_0 = 1/y_test.count(0)
-    w_1 = 1/y_test.count(1)
     print("\n- Baseline Test: %.2f" % baseline)
-    
+
+    #X_train, y_train, X_test, y_test = np.array(X_train), np.array(y_train), np.array(X_test), np.array(y_test)
+
     # dimensionality reduction via pca
     n_features = X_train.shape[1]
-    n_components = 8
-    n_components = min(n_components,n_features)
-    #X_train, X_test = data_reduction(n_components,X_train,y_train,X_test)
+    #n_components = [2,4,6,8] #8 for no pca
+    n_components = [8]
+    #n_components = min(n_components,n_features)
 
     n_features = X_train.shape[1]
     print("\n- Training con %i Features: %s" % (n_features, features))
@@ -575,7 +582,21 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        param_grid = {
+            'min_samples_split': [2, 5, 7],
+            'max_depth': [10, 50, 100, None],
+            'max_features': ['sqrt', 'log2', n_features],
+            'min_samples_leaf': [2, 3, 4],
+            'n_estimators': [100, 500, 1000, 1500],
+            'ccp_alpha': [0., 1e-5, 5e-5],  # 0 no pruning
+            "random_state": [42],
+            "class_weight": ["balanced"]
+        }
+
+
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_rbf.joblib"
@@ -588,7 +609,17 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        param_grid = {
+            "kernel": ["rbf"],
+            "C": [1.0, 10.0, 100.0],
+            "gamma": ["scale", "auto"],
+            "random_state": [42],
+            "class_weight": ['balanced']
+        }
+
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_lin.joblib"
@@ -596,11 +627,21 @@ def main():
 
     param_grid = {
         "kernel": ["linear"],
-        "C": [1.0, 10.0, 100.0],
+        "C": [1.], #con 100 non converge!
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        param_grid = {
+            "kernel": ["linear"],
+            "C": [1.],  # con 100 non converge!
+            "random_state": [42],
+            "class_weight": ['balanced']
+        }
+
+
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_poly.joblib"
@@ -614,7 +655,18 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        param_grid = {
+            "kernel": ["poly"],
+            "C": [1.0, 10.0, 100.0],
+            "degree": [2, 3],
+            "gamma": ["scale", "auto"],
+            "random_state": [42],
+            "class_weight": ["balanced"]
+        }
+
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_sigmoid.joblib"
@@ -627,7 +679,17 @@ def main():
         "random_state": [42]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        param_grid = {
+            "kernel": ["sigmoid"],
+            "C": [1.0, 10.0, 100.0],
+            "gamma": ["scale", "auto"],
+            "random_state": [42],
+            "class_weight": ["balanced"]
+        }
+
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     #naive bayes
     #si basa su ipotesi distribuzione feature
@@ -643,7 +705,20 @@ def main():
         "var_smoothing": [1e-10,1e-9,1e-8]
     }
 
-    #cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf)
+    if (weights):
+
+        w_0 = y_train.count(0) / len(y_train)
+        w_1 = y_train.count(1) / len(y_train)
+        print("Prior Probabilities: %.2f Class 0, %.2f Class 1" % (w_0,w_1))
+
+        param_grid = {
+            "var_smoothing": [1e-10, 1e-9, 1e-8],
+            "priors": [[w_0,w_1]]
+        }
+
+
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    
     #X_train_num, X_test_num = preprocessing_data(X_train_num, X_test_num)
     #cross_validation(clf, param_grid, 5, X_train_num, y_train, X_test_num, y_test, nameclf, dirclf)
 
@@ -662,7 +737,20 @@ def main():
         "fit_prior": [True, False]
     }
 
-    #cross_validation(clf,param_grid,5,X_train_cat,y_train,X_test_cat,y_test,nameclf,dirclf)
+    if (weights):
+
+        w_0 = y_train.count(0) / len(y_train)
+        w_1 = y_train.count(1) / len(y_train)
+        print("Prior Probabilities: %.2f Class 0, %.2f Class 1" % (w_0, w_1))
+
+        param_grid = {
+            "alpha": [0.1, 0.5, 1, 1.5],
+            "fit_prior": [True,False],
+            "class_prior": [[w_0,w_1]]
+        }
+
+    #no pca because it would need scaled variables
+    cross_validation(clf, param_grid, 5, X_train_cat, y_train, X_test_cat, y_test, nameclf, dirclf)
 
     '''
     clf.fit(X_train,y_train)

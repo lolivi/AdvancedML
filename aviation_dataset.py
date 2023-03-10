@@ -521,6 +521,7 @@ def main():
     #method = SMOTE(random_state=42)
     #method = SMOTETomek(random_state=42)
     if (not method): weights = True
+    else: weights = False
 
     print("\n- Data Augmentation with %s" % method)
     print("Pre-Augmentation:")

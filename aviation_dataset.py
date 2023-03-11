@@ -515,11 +515,11 @@ def main():
     print("Test: %i" % len(X_test))
 
     # data augmentation
-    #method = None #no augmentation
+    method = None #no augmentation
     #method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
     #method = SMOTE(random_state=42)
-    method = SMOTETomek(random_state=42)
+    #method = SMOTETomek(random_state=42)
     if (not method): weights = True
     else: weights = False
 

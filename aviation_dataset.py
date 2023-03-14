@@ -6,6 +6,7 @@ import pandas as pd
 
 #plotter.py
 from plotter import * #plotter functions
+from df_cleaner import * #functions to merge and clean dataframe
 if (not os.path.exists("plots")): os.makedirs("plots")
 
 #sklearn models
@@ -26,8 +27,11 @@ from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.combine import SMOTETomek
 
-#variabili da tenere con verifiche
-cleanvars = ["Injury.Severity","Investigation.Type","Country","Aircraft.damage","Amateur.Built","Number.of.Engines","Engine.Type","Purpose.of.flight","Weather.Condition","Broad.phase.of.flight","Year","Month"]
+#variabili qualitativamente scelte (verranno verificate con correlazione e
+cleanvars = ["Injury.Severity","Investigation.Type","Country",
+             "Aircraft.damage","Amateur.Built","Number.of.Engines",
+             "Engine.Type","Purpose.of.flight","Weather.Condition",
+             "Broad.phase.of.flight","Year","Month"]
 plotopt = False #whether to plot figs or not
 
 #restituisce il dataframe di pandas
@@ -47,196 +51,6 @@ def get_info(df):
 #Descriptive statistics include those that summarize the central tendency, dispersion and shape of a dataset’s distribution
 def describe_data(df):
     print(df.describe(include=object))
-
-#numeri dati mancanti
-def get_number_of_null_values(df):
-    print(df.isna().sum())
-
-#numeri dati duplicati
-def get_number_of_duplicated_values(df):
-    print(df.duplicate().sum())
-
-#percentuali di variabili mancanti
-def get_percentage_missing_values(df):
-    # calculate % missing values for each column
-    n_rows = len(df)
-    missing = df.isna().sum()
-    percentage_missing = missing / n_rows
-
-    # insert data into DataFrame (df) to display
-    percentage_missing_df = pd.DataFrame({
-        "Missing": percentage_missing
-    })
-    percentage_missing_df.sort_values("Missing", ascending=False, inplace=True)
-
-    print(percentage_missing_df)
-
-    return percentage_missing_df
-
-#seleziona dati con percentuale mancante < threshold
-def select_columns_by_missing_threshold(original_df, percentage_df, threshold):
-
-    columns_to_drop = list(percentage_df[percentage_df['Missing'] > threshold].index)
-    print(columns_to_drop)
-
-    original_df.drop(columns=columns_to_drop, axis = 1, inplace = True)
-
-    return original_df
-
-#data diventa anno, month, day nel dataframe
-def convert_date_into_day_month_year(df):
-
-    df["Event.Date"] = pd.to_datetime(df["Event.Date"])
-    df["Year"] = df["Event.Date"].dt.year
-    df["Month"] = df["Event.Date"].dt.month
-    df["Day"] = df["Event.Date"].dt.day
-
-    return df
-
-#weekend è 1 o 0
-def add_flag_weekend(df):
-
-    df.loc[(df['Event.Date'].dt.day_name().str[:3] == 'Sat') | (df['Event.Date'].dt.day_name().str[:3] == 'Sun'), 'Weekend'] = 0
-    df.loc[(df['Event.Date'].dt.day_name().str[:3] != 'Sat') & (df['Event.Date'].dt.day_name().str[:3] != 'Sun'), 'Weekend'] = 1
-
-    return df
-
-#fa il merge di aeroporti con private in PRIVATE, none in NONE e poi printa (ma non taglia) i 10 più frequenti
-def merge_same_airports(df):
-
-    df['Airport.Name'].replace(to_replace='(?i)^.*private.*$', value='PRIVATE', inplace=True, regex=True)
-    df['Airport.Name'].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
-    df['Airport.Code'].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
-
-    #print(df["Airport.Code"].value_counts().nlargest(10))
-    #print(df["Airport.Name"].value_counts().nlargest(10))
-
-    return df
-    
-def merge_engine_type(df):
-
-    df['Engine.Type'].fillna('Unknown', inplace = True)
-    #df['Engine.Type'].replace(to_replace=None, value='NONE', inplace=True, regex=False)
-    return df
-   
-#analogo di aeroporti e poi in output ci sono i 10 frequenti
-def merge_same_registrations(df):
-
-    df["Registration.Number"].replace(to_replace='(?i)none', value='NONE', inplace=True, regex=True)
-    df["Registration.Number"].replace(to_replace=['unknown', 'UNK'], value="UNKNOWN", inplace=True, regex=False)
-
-    #print(df["Registration.Number"].value_counts().nlargest(10))
-
-    return df
-
-def merge_aircraftdamage(df):
-
-    df['Aircraft.damage'].fillna('Unknown', inplace = True)
-    return df
-
-def merge_purposeofflight(df):
-
-    df['Purpose.of.flight'].fillna('Unknown', inplace = True)
-    return df
-
-def merge_enginenumbers(df):
-
-    nengines = df["Number.of.Engines"].values.tolist()
-    moda = statistics.mode(nengines)
-
-    nbins = int(max(nengines)-min(nengines)+1)
-    plt.figure()
-    plt.hist(nengines, range = (min(nengines)-0.5,max(nengines)+0.5), bins=nbins)
-    plt.yscale("log")
-    plt.title("Number of Engines")
-    plt.xlabel("Number of Engines")
-    plt.ylabel("Events")
-    plt.axvline(moda, color = "red")
-    plt.savefig("plots/nengines.png")
-
-    df['Number.of.Engines'].fillna(moda, inplace=True) #commentare per non sostituire vuoti
-
-    return df
-
-def yearclass(y,years):
-
-    out = False #y not in years (empty bin)
-    for iy in range(10):
-        if (y+iy in years):
-            out = True
-            break
-    return out
-
-def merge_year(df):
-
-    years = df["Year"].values.tolist()
-
-    yearmin = int(min(years)/10)*10
-    yearmax = int(max(years)/10)*10 + 10
-
-    yearbins = [y for y in range(yearmin,yearmax+1,10) if yearclass(y,years)]
-    yearbins.append(yearmax)
-    yearlabels = [("%is" % y) for iy,y in enumerate(yearbins) if iy != (len(yearbins)-1)]
-
-    #df['Year'] = pd.cut(x = df['Year'], bins = yearbins, labels = yearlabels, include_lowest = True)
-
-    d = dict(enumerate(yearlabels, 1))
-    df['Year'] = np.vectorize(d.get)(np.digitize(df['Year'], yearbins))
-
-    return df
-
-#fisso variabili a valori più standard
-def fix_values(df):
-
-    df["Make"] = df["Make"].str.title() #mette lettere grandi della casa costruttrice
-
-    #sostituisce yes e no con 1 e 0
-    df["Amateur.Built"].replace(to_replace=['Yes', 'Y'], value=1, inplace=True, regex=False)
-    df["Amateur.Built"].replace(to_replace=['No', 'N'], value=0, inplace=True, regex=False)
-
-    #fatal(0) diventa fatal
-    df["Injury.Severity"] = df["Injury.Severity"].str.split('(').str[0] #seleziona
-
-    #mappa unk e UNK in unknown
-    df["Weather.Condition"].replace(to_replace=['Unk', 'UNK'], value='UNKNOWN', inplace=True, regex=False)
-
-    #toglie dati sconosciuti
-    df = df[df['Weather.Condition'] != 'UNKNOWN']
-    df = df[df["Injury.Severity"] != "Unavailable"]
-    df = df[df["Injury.Severity"] != "Serious"]
-    df = df[df["Injury.Severity"] != "Minor"]
-    df = df[df["Broad.phase.of.flight"] != "Unknown"]
-
-    #df = df[df["Year"] >= 1982]
-
-    return df
-
-#aggiunge city e state al dataframe
-def split_city_state(df):
-
-    df["City"] = df["Location"].str.split(",").str[0]
-    df["State"] = df["Location"].str.split(",").str[1]
-
-    return df
-
-def cleaning_nan(df): #same as transform_data_into_value without conversion (to save csv)
-
-    data = df.copy()
-
-    #binary classification
-    data = data[data["Injury.Severity"] != "Unavailable"]
-    data = data[data["Injury.Severity"] != "Serious"]
-    data = data[data["Injury.Severity"] != "Minor"]
-    data = data[data["Injury.Severity"] != "Incident"]
-
-    # replace all infinite values with nan
-    data.replace([np.inf, -np.inf], np.nan, inplace=True)
-
-    # remove all nan values
-    data.dropna(inplace=True)
-
-    return data
-
 
 def transform_data_into_value(df):
 
@@ -279,7 +93,7 @@ def feature_selection(df,variables): #variables da eliminare
 
     #month perché non è correlato a nulla tranne che a meteo, e quindi è ridondante
     #country è correlato a meteo ed è ridonante
-    #escludiamo anche i total injuries perché basterebbe fatal injuries per il 100%, forniamo al classificatore un informazione ridonndante con l'output
+    #escludiamo anche i total injuries perché basterebbe fatal injuries per il 100%, forniamo al classificatore un informazione ridondante con l'output
     excludevars = ["Month","Country","Investigation.Type","Total.Fatal.Injuries","Total.Serious.Injuries","Total.Minor.Injuries","Total.Uninjured"]
 
     newvars = [var for var in variables if var not in excludevars]
@@ -339,11 +153,11 @@ def split_train_test(X,y):
 
 def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_output,dir_output, n_components = 8):
 
-    print("\n- Training...")
-
     if (n_components != 8):
         dir_output = dir_output.replace("/","_%i/" % (n_components))
         X_train, X_test = data_reduction(n_components,X_train,y_train,X_test) #pca components
+
+    print("\n- Training con %i Componenti" % X_train.shape[1])
 
     search = GridSearchCV(clf, param_grid = param_grid, n_jobs=-1, cv = ncv, scoring="f1",verbose=10)
     search.fit(X_train, y_train)
@@ -366,7 +180,6 @@ def cross_validation(clf,param_grid,ncv,X_train,y_train,X_test,y_test,name_outpu
     print("- Train Set:")
     #writing to file
     resultfile.write("\n\nScore Train Set:")
-    #resultfile.close()
     evaluate(search.predict(X_train), y_train,resultfile)
 
     print("- Test Set:")
@@ -398,7 +211,7 @@ def evaluate(y_pred, y_gold, resultfile):
     print("Precision score: {:3f}".format(prec))
     print("Recall score: {:3f}".format(rec))
     print("F1 score: {:3f}".format(f1))
-        
+
 def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
 
     print('\n- Plotting Learning Curve:')
@@ -418,6 +231,45 @@ def plot_learningcurve(clf,X_train,y_train,train_sizes,n_folds,directory):
     plt.title("Learning Curves")
     plt.legend(loc = "best")
     plt.savefig(directory+"learningcurve.png")
+
+#explained variance and most important features
+def component_analysis(X_train,feature_names):
+
+    print("\n- Principal Component Analysis")
+
+    n_features = X_train.shape[1]
+    pca = PCA()
+    model = pca.fit(X_train)
+    X_pca = model.transform(X_train)
+
+    print("Explained Variance Ratio: ",pca.explained_variance_ratio_)
+
+    var_arr = np.zeros((n_features,n_features))
+    for i in range(n_features): var_arr[i][i] = pca.explained_variance_ratio_[i]
+    var_arr[var_arr == 0] = None
+
+    f = plt.figure()
+    sns.heatmap(pd.DataFrame(abs(pca.components_),columns = feature_names), vmin=0, vmax=1, annot=True)
+    plt.title("Principal Component Analysis - Components")
+    plt.ylabel("Principal Component")
+    plt.xlabel("Feature Name")
+    plt.savefig("plots/pca_components.png", bbox_inches='tight')
+
+    n_pcs = model.components_.shape[0]
+    most_important = [np.abs(model.components_[i]).argmax() for i in range(n_pcs)]
+
+    # get the names
+    most_important_names = [feature_names[most_important[i]] for i in range(n_pcs)]
+
+    dic = {'PC{}'.format(i): most_important_names[i] for i in range(n_pcs)}
+    print("Most Important Features...",dic)
+
+    f = plt.figure()
+    sns.heatmap(pd.DataFrame(var_arr.tolist(), columns=most_important_names), vmin=0, vmax=1, annot=True)
+    plt.title("Principal Component Analysis - Explained Variance")
+    plt.ylabel("Principal Component")
+    plt.xlabel("Most Important Feature")
+    plt.savefig("plots/pca_variance.png", bbox_inches='tight')
 
 def main():
 
@@ -515,11 +367,11 @@ def main():
     print("Test: %i" % len(X_test))
 
     # data augmentation
-    method = None #no augmentation
+    #method = None #no augmentation
     #method = RandomOverSampler(random_state=42)
     #method = RandomUnderSampler(random_state=42)
     #method = SMOTE(random_state=42)
-    #method = SMOTETomek(random_state=42)
+    method = SMOTETomek(random_state=42)
     if (not method): weights = True
     else: weights = False
 
@@ -556,16 +408,11 @@ def main():
     baseline = max(y_test.count(0), y_test.count(1))/len(y_test)
     print("\n- Baseline Test: %.2f" % baseline)
 
-    #X_train, y_train, X_test, y_test = np.array(X_train), np.array(y_train), np.array(X_test), np.array(y_test)
-
     # dimensionality reduction via pca
-    n_features = X_train.shape[1]
     n_components = [2,4,6] #8 for no pca
     #n_components = [8]
-    #n_components = min(n_components,n_features)
-
+    component_analysis(X_train,features)
     n_features = X_train.shape[1]
-    print("\n- Training con %i Features: %s" % (n_features, features))
 
     #choosing classifier
     clf = RandomForestClassifier()
@@ -597,7 +444,7 @@ def main():
         }
 
 
-    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_rbf.joblib"
@@ -605,7 +452,7 @@ def main():
 
     param_grid = {
         "kernel": ["rbf"],
-        "C": [1.0, 10.0, 50.0],
+        "C": [1.0, 10.0, 50.],
         "gamma": ["scale", "auto"],
         "random_state": [42]
     }
@@ -614,13 +461,13 @@ def main():
 
         param_grid = {
             "kernel": ["rbf"],
-            "C": [1.0, 10.0, 50.0],
+            "C": [1.0, 10.0, 50.],
             "gamma": ["scale", "auto"],
             "random_state": [42],
             "class_weight": ['balanced']
         }
 
-    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_lin.joblib"
@@ -628,7 +475,7 @@ def main():
 
     param_grid = {
         "kernel": ["linear"],
-        "C": [1.], #con 100 non converge!
+        "C": [1.],
         "random_state": [42]
     }
 
@@ -636,13 +483,13 @@ def main():
 
         param_grid = {
             "kernel": ["linear"],
-            "C": [1.],  # con 100 non converge!
+            "C": [1.],
             "random_state": [42],
             "class_weight": ['balanced']
         }
 
 
-    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_poly.joblib"
@@ -650,7 +497,7 @@ def main():
 
     param_grid = {
         "kernel": ["poly"],
-        "C": [1.0, 10.0, 50.0],
+        "C": [1.0, 10.0, 50.],
         "degree": [2, 3],
         "gamma": ["scale", "auto"],
         "random_state": [42]
@@ -660,14 +507,14 @@ def main():
 
         param_grid = {
             "kernel": ["poly"],
-            "C": [1.0, 10.0, 50.0],
+            "C": [1.0, 10.0, 50.],
             "degree": [2, 3],
             "gamma": ["scale", "auto"],
             "random_state": [42],
             "class_weight": ["balanced"]
         }
 
-    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     clf = SVC()
     nameclf = "svm_sigmoid.joblib"
@@ -690,13 +537,11 @@ def main():
             "class_weight": ["balanced"]
         }
 
-    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
 
     #naive bayes
     #si basa su ipotesi distribuzione feature
-    # gaussian -> serve una distribuzione con media e varianza
-    #          -> Quindi o normalizziamo con scale
-    #          -> Se non normalizziamo, utilizzamo solo feature non categoriche
+    #gaussian -> serve una distribuzione con media e varianza
 
     clf = GaussianNB()
     nameclf = "gnb.joblib"
@@ -718,7 +563,7 @@ def main():
         }
 
 
-    #for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
+    for comp in n_components: cross_validation(clf, param_grid, 5, X_train, y_train, X_test, y_test, nameclf, dirclf, comp)
     
     #X_train_num, X_test_num = preprocessing_data(X_train_num, X_test_num)
     #cross_validation(clf, param_grid, 5, X_train_num, y_train, X_test_num, y_test, nameclf, dirclf)
@@ -751,7 +596,8 @@ def main():
         }
 
     #no pca because it would need scaled variables
-    #cross_validation(clf, param_grid, 5, X_train_cat, y_train, X_test_cat, y_test, nameclf, dirclf)
+    X_train_cat, y_train, X_test_cat, y_test = np.array(X_train_cat), np.array(y_train), np.array(X_test_cat), np.array(y_test)
+    cross_validation(clf, param_grid, 5, X_train_cat, y_train, X_test_cat, y_test, nameclf, dirclf)
 
     '''
     clf.fit(X_train,y_train)

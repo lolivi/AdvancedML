@@ -1,1 +1,0 @@
-- Generare dizionario per classi

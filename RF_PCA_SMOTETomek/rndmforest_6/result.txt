@@ -1,0 +1,17 @@
+Best Parameters: 
+{'ccp_alpha': 0.0, 'max_depth': 50, 'max_features': 'sqrt', 'min_samples_leaf': 2, 'min_samples_split': 5, 'n_estimators': 1500, 'random_state': 42}
+
+Best Validation Score: 
+0.9058404415099084
+
+Score Train Set:
+Accuracy score: 0.921555
+Precision score: 0.920169
+Recall score: 0.923204
+F1 score: 0.921684
+
+Score Test Set:
+Accuracy score: 0.900190
+Precision score: 0.972819
+Recall score: 0.909918
+F1 score: 0.940318

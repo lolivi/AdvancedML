@@ -1,0 +1,17 @@
+Best Parameters: 
+{'priors': [0.1355127509495388, 0.8644872490504613], 'var_smoothing': 1e-10}
+
+Best Validation Score: 
+0.9290984323010418
+
+Score Train Set:
+Accuracy score: 0.874525
+Precision score: 0.910365
+Recall score: 0.948219
+F1 score: 0.928906
+
+Score Test Set:
+Accuracy score: 0.874152
+Precision score: 0.910682
+Recall score: 0.947269
+F1 score: 0.928615

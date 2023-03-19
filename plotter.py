@@ -1,4 +1,5 @@
 import os.path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -137,16 +138,4 @@ def plot_output_feature(df,out,feat):
     plt.legend(bbox_to_anchor=(1.05,1.02), loc="upper left")
     #plt.tight_layout()
     plt.savefig("plots/%s_%s.png" % (out,feat), dpi = 200, bbox_inches='tight')
-    plt.close("all")
-
-def plot_frequency(df,feat):
-
-    plt.figure(figsize=(9.6, 5.4), clear=True)
-
-    dataplot = df[feat].value_counts()
-    dataplot.plot.bar()
-    plt.xlabel(feat)
-    plt.ylabel("Events")
-    plt.xticks(rotation=90)
-    plt.savefig("plots/1d_freq_%s.png" % (feat), bbox_inches='tight')
     plt.close("all")
